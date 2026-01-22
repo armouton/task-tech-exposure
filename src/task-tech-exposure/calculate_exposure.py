@@ -1,12 +1,8 @@
 # IMPORT PACKAGES
 import os
-import sys
 import pandas as pd
 import numpy as np
 import itertools
-from pathlib import Path
-
-pd.options.mode.chained_assignment = None
 
 
 # ================== CALCULATE EXPOSURE MEASURES =================
@@ -68,19 +64,20 @@ def try_load_npy(path):
 
 
 # CALCULATE EXPOSURE MEASURES
-def calculate_tte_exposure(path_to_master, path_to_classifications, path_to_results, 
-                     tech_class, task_class, level, frequency, weights="both", match_cutoff=None, 
-                     measure="exposed", drop_thresh=None, start_date=None, end_date=None, 
+def measure_exposure(path_to_master, path_to_tech_classifications, 
+                     path_to_task_classifications, path_to_results, 
+                     level="aggregate", frequency="annual", weights="both", 
+                     measure="exposed", match_cutoff=None, 
+                     drop_thresh=None, start_date=None, end_date=None, 
                      num_percentiles=20, crosswalk=None, digits=6):
     """
     Calculate technology exposure measures for occupations.
     
     Args:
         path_to_master: Path to master data directory
-        path_to_classifications: Path to classification files
+        path_to_tech_classifications: Path to technology classification files
+        path_to_task_classifications: Path to task classification files
         path_to_results: Path to output directory
-        tech_class: Technology classification file name
-        task_class: Task classification file name
         level: Aggregation level ('aggregate', 'percentiles', 'occupation')
         frequency: Time aggregation ('annual', 'quarterly', 'monthly', 'all')
         weights: Weighting scheme ('both', 'none', 'occupation', 'task')
@@ -96,15 +93,16 @@ def calculate_tte_exposure(path_to_master, path_to_classifications, path_to_resu
     print(f"\n{'='*60}")
     print(f"TTE Exposure Measurement")
     print(f"{'='*60}")
-    print(f"Tech classification: {path_to_classifications}{tech_class}.csv")
-    print(f"Task classification: {path_to_classifications}{task_class}.csv")
+    print(f"Tech classification: {path_to_tech_classifications}")
+    print(f"Task classification: {path_to_task_classifications}")
     print(f"Level: {level}, Frequency: {frequency}, Weights: {weights}")
     print(f"{'='*60}\n")
     
     try:
         # Check if required directories exist
         for path_name, path in [("master", path_to_master), 
-                               ("classifications", path_to_classifications),
+                               ("tech classifications", path_to_tech_classifications),
+                               ("task classifications", path_to_task_classifications),
                                ("results", path_to_results)]:
             if not os.path.exists(path):
                 if path_name == "results":
@@ -115,10 +113,10 @@ def calculate_tte_exposure(path_to_master, path_to_classifications, path_to_resu
             
         # Load classification files
         task_class_df = try_load_csv(
-            f'{path_to_classifications}{task_class}_classification.csv', 
+            f'{path_to_task_classifications}', 
             abort=True)
         tech_class_df = try_load_csv(
-            f'{path_to_classifications}{tech_class}_classification.csv', 
+            f'{path_to_tech_classifications}', 
             abort=True)
         tech_names = tech_class_df.columns[1:].tolist()
         print(f"Loaded {len(tech_names)} technology categories")

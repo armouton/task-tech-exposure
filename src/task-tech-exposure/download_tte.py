@@ -19,7 +19,7 @@ class TTEDownloader:
     def __init__(self, local_output_dir: str):
         self.local_output_dir = Path(local_output_dir)
         self.local_output_dir.mkdir(parents=True, exist_ok=True)
-        self.local_manifest_path = self.local_output_dir / "local_manifest.json"
+        self.local_manifest_path = self.local_output_dir / "tte/zenodo_manifest.json"
         
         # Proper headers for Zenodo
         self.headers = {
@@ -350,15 +350,15 @@ class TTEDownloader:
         self._save_local_manifest(remote_manifest)
         
         print(f"\n{'='*60}")
-        print("✓ Download and extraction complete!")
+        print("✓ Download and extraction complete")
         print(f"{'='*60}\n")
 
 
-def download_tte_dataset(
-    from_date: str,
-    to_date: str,
-    remote_url: str,
+def download_tte(
     local_output_dir: str,
+    from_date: str = None,
+    to_date: str = None,
+    remote_url: str = "https://doi.org/10.5281/zenodo.17643646",
     force_update: bool = False
 ):
     """

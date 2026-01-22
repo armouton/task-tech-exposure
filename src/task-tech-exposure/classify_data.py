@@ -1,14 +1,10 @@
 # IMPORT PACKAGES
 import os
-import sys
+import json
 import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import torch
-from pathlib import Path
-
-pd.options.mode.chained_assignment = None
-np.random.seed(100)
 
 
 # ================== CLASSIFY DATA =================
@@ -119,8 +115,8 @@ def try_load_npy(path):
 
 
 # CLASSIFY PATENTS
-def classify_tte_patents(path_to_master, path_to_descriptions, path_to_results, 
-                     category_file, sbert_tech, cutoff, tech_groups=None,
+def classify_patents(path_to_master, path_to_descriptions, path_to_results, 
+                     sbert_tech=None, cutoff=None, tech_groups=None,
                      tech_priority="order"):
     """
     Classify patents into technology categories based on semantic similarity.
@@ -128,17 +124,28 @@ def classify_tte_patents(path_to_master, path_to_descriptions, path_to_results,
     Args:
         path_to_master: Path to master data directory
         path_to_descriptions: Path to category descriptions
-        path_to_results: Path to output directory
-        category_file: Name of category file (without _categories.csv suffix)
+        path_to_results: Path to output file
         sbert_tech: Path to SBERT model
         cutoff: Similarity threshold for classification
         tech_groups: List of mutually exclusive technology groups (optional)
         tech_priority: Priority method for groups - "order" or "score" (default: "order")
     """
+    # Load directories from manifest if not specified
+    if cutoff is None or sbert_tech is None:
+        """Load local manifest if it exists."""
+        try:
+            with open(path_to_master + 'dataset_manifest.json', 'r') as f:
+                manifest = json.load(f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model and cutoff") from e
+        
+        cutoff = manifest.get("tech_cutoff") if cutoff is None else cutoff
+        sbert_tech = path_to_master + 'tte_models/' + manifest.get("tech_model") if sbert_tech is None else sbert_tech
+
     print(f"\n{'='*60}")
     print(f"TTE Patent Classification")
     print(f"{'='*60}")
-    print(f"Category file: {path_to_descriptions}{category_file}_categories.csv")
+    print(f"Category file: {path_to_descriptions}")
     print(f"SBERT model: {sbert_tech}")
     print(f"Cutoff: {cutoff}")
     print(f"Classification method: {f'Mutually exclusive groups with {tech_priority}' if tech_groups else 'All matching categories'}")
@@ -150,7 +157,7 @@ def classify_tte_patents(path_to_master, path_to_descriptions, path_to_results,
                                 path_to_results, sbert_tech)
 
         # Load and embed tech categories
-        category_path = f'{path_to_descriptions}{category_file}_categories.csv'
+        category_path = f'{path_to_descriptions}'
         tech_class = try_load_csv(category_path, abort=True)
         
         if 'name' not in tech_class.columns or 'gpt_description' not in tech_class.columns:
@@ -244,7 +251,7 @@ def classify_tte_patents(path_to_master, path_to_descriptions, path_to_results,
 
         # Save classification file
         patents = patents[["patent_id"] + tech_names]
-        output_path = f'{path_to_results}{category_file}_classification.csv'
+        output_path = f'{path_to_results}'
         patents.to_csv(output_path, index=False)
         print(f"Total patents classified: {len(patents)}")
         print(f"Technology classification counts:")
@@ -263,22 +270,32 @@ def classify_tte_patents(path_to_master, path_to_descriptions, path_to_results,
 
 
 # CLASSIFY TASK STATEMENTS
-def classify_tte_tasks(path_to_master, path_to_descriptions, path_to_results, 
-                   category_file, sbert_task):
+def classify_tasks(path_to_master, path_to_descriptions, path_to_results, 
+                   sbert_task=None):
     """
     Classify O*NET task statements into task categories based on semantic similarity.
     
     Args:
         path_to_master: Path to master data directory
         path_to_descriptions: Path to category descriptions
-        path_to_results: Path to output directory
-        category_file: Name of category file (without _categories.csv suffix)
+        path_to_results: Path to output file
         sbert_task: Path to SBERT model
     """
+    # Load directories from manifest if not specified
+    if sbert_task is None:
+        """Load local manifest if it exists."""
+        try:
+            with open(path_to_master + 'dataset_manifest.json', 'r') as f:
+                manifest = json.load(f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model") from e
+        
+        sbert_task = path_to_master + 'tte_models/' + manifest.get("tech_model") if sbert_task is None else sbert_task
+
     print(f"\n{'='*60}")
     print(f"TTE Task Classification")
     print(f"{'='*60}")
-    print(f"Category file: {path_to_descriptions}{category_file}_categories.csv")
+    print(f"Category file: {path_to_descriptions}")
     print(f"SBERT model: {sbert_task}")
     print(f"{'='*60}\n")
     
@@ -288,7 +305,7 @@ def classify_tte_tasks(path_to_master, path_to_descriptions, path_to_results,
                                 path_to_results, sbert_task)
 
         # Load the descriptions
-        desc_path = f'{path_to_descriptions}{category_file}_categories.csv'
+        desc_path = f'{path_to_descriptions}'
         task_desc = try_load_csv(desc_path, 
                                 usecols=['gpt_description', 'name'], 
                                 abort=True)
@@ -319,7 +336,7 @@ def classify_tte_tasks(path_to_master, path_to_descriptions, path_to_results,
 
         # Save classification file
         onet = onet[["task_ref", "task_cat"]]
-        output_path = f'{path_to_results}{category_file}_classification.csv'
+        output_path = f'{path_to_results}'
         onet.to_csv(output_path, index=False)
         
         print(f"Total tasks classified: {len(onet)}")
