@@ -64,8 +64,9 @@ def try_load_npy(path):
 
 
 # CALCULATE EXPOSURE MEASURES
-def measure_exposure(path_to_master, path_to_tech_classifications, 
-                     path_to_task_classifications, path_to_results, 
+def measure_exposure(path_to_data, path_to_results, 
+                     path_to_tech_classifications = None,
+                     path_to_task_classifications = None, 
                      level="aggregate", frequency="annual", weights="both", 
                      measure="exposed", match_cutoff=None, 
                      drop_thresh=None, start_date=None, end_date=None, 
@@ -74,7 +75,7 @@ def measure_exposure(path_to_master, path_to_tech_classifications,
     Calculate technology exposure measures for occupations.
     
     Args:
-        path_to_master: Path to master data directory
+        path_to_data: Path to data directory
         path_to_tech_classifications: Path to technology classification files
         path_to_task_classifications: Path to task classification files
         path_to_results: Path to output directory
@@ -90,6 +91,16 @@ def measure_exposure(path_to_master, path_to_tech_classifications,
         crosswalk: SOC crosswalk year ('2000' or '2019', optional)
         digits: Number of SOC digits for occupation level (default: 6)
     """
+    # Load directories from manifest if not specified
+    path_to_master = path_to_data + 'tte/'
+    if path_to_tech_classifications is None:
+        path_to_tech_classifications = path_to_results + 'tech_classification.csv'
+        if not os.path.exists(path_to_tech_classifications):
+            raise FileNotFoundError("✗ Technology classification file not found, please specify path")
+    if path_to_task_classifications is None:
+        path_to_task_classifications = path_to_results + 'task_classification.csv'
+        if not os.path.exists(path_to_task_classifications):
+            raise FileNotFoundError("✗ Task classification file not found, please specify path")
     print(f"\n{'='*60}")
     print(f"TTE Exposure Measurement")
     print(f"{'='*60}")
@@ -100,7 +111,7 @@ def measure_exposure(path_to_master, path_to_tech_classifications,
     
     try:
         # Check if required directories exist
-        for path_name, path in [("master", path_to_master), 
+        for path_name, path in [("data", path_to_data), 
                                ("tech classifications", path_to_tech_classifications),
                                ("task classifications", path_to_task_classifications),
                                ("results", path_to_results)]:

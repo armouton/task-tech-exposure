@@ -48,11 +48,6 @@ def initialize_model(path_to_master, path_to_descriptions, path_to_results, sber
     for path_name, path in [("master", path_to_master), ("descriptions", path_to_descriptions)]:
         if not os.path.exists(path):
             raise FileNotFoundError(f"{path_name.capitalize()} directory not found at {path}")
-    
-    # Create results directory if it doesn't exist
-    if not os.path.exists(path_to_results):
-        os.makedirs(path_to_results, exist_ok=True)
-        print(f"Created results directory at {path_to_results}")
 
     return model
 
@@ -115,22 +110,31 @@ def try_load_npy(path):
 
 
 # CLASSIFY PATENTS
-def classify_patents(path_to_master, path_to_descriptions, path_to_results, 
+def classify_patents(path_to_data, path_to_results,
+                     path_to_output=None, path_to_descriptions=None,
                      sbert_tech=None, cutoff=None, tech_groups=None,
                      tech_priority="order"):
     """
     Classify patents into technology categories based on semantic similarity.
     
     Args:
-        path_to_master: Path to master data directory
-        path_to_descriptions: Path to category descriptions
-        path_to_results: Path to output file
+        path_to_data: Path to data directory
+        path_to_results: Path to output directory
+        path_to_output: Path to output file (optional)
+        path_to_descriptions: Path to category descriptions (optional)
         sbert_tech: Path to SBERT model
         cutoff: Similarity threshold for classification
         tech_groups: List of mutually exclusive technology groups (optional)
         tech_priority: Priority method for groups - "order" or "score" (default: "order")
     """
     # Load directories from manifest if not specified
+    path_to_master = path_to_data + 'tte/'
+    if path_to_output is None:
+        path_to_output = path_to_results + 'tech_classification.csv'
+    if path_to_descriptions is None:
+        path_to_descriptions = path_to_master + 'tte_models/category_descriptions/tech_categories.csv'
+        if not os.path.exists(path_to_descriptions):
+            raise FileNotFoundError("✗ Technology category descriptions file not found, please specify path")
     if cutoff is None or sbert_tech is None:
         """Load local manifest if it exists."""
         try:
@@ -251,7 +255,7 @@ def classify_patents(path_to_master, path_to_descriptions, path_to_results,
 
         # Save classification file
         patents = patents[["patent_id"] + tech_names]
-        output_path = f'{path_to_results}'
+        output_path = f'{path_to_output}'
         patents.to_csv(output_path, index=False)
         print(f"Total patents classified: {len(patents)}")
         print(f"Technology classification counts:")
@@ -270,18 +274,26 @@ def classify_patents(path_to_master, path_to_descriptions, path_to_results,
 
 
 # CLASSIFY TASK STATEMENTS
-def classify_tasks(path_to_master, path_to_descriptions, path_to_results, 
-                   sbert_task=None):
+def classify_tasks(path_to_data, path_to_results, path_to_output=None,
+                   path_to_descriptions=None, sbert_task=None):
     """
     Classify O*NET task statements into task categories based on semantic similarity.
     
     Args:
-        path_to_master: Path to master data directory
-        path_to_descriptions: Path to category descriptions
-        path_to_results: Path to output file
+        path_to_data: Path to data directory
+        path_to_results: Path to output directory
+        path_to_output: Path to output file (optional)
+        path_to_descriptions: Path to category descriptions (optional)
         sbert_task: Path to SBERT model
     """
     # Load directories from manifest if not specified
+    path_to_master = path_to_data + 'tte/'
+    if path_to_output is None:
+        path_to_output = path_to_results + 'task_classification.csv'
+    if path_to_descriptions is None:
+        path_to_descriptions = path_to_master + 'tte_models/category_descriptions/task_categories.csv'
+        if not os.path.exists(path_to_descriptions):
+            raise FileNotFoundError("✗ Task category descriptions file not found, please specify path")
     if sbert_task is None:
         """Load local manifest if it exists."""
         try:
@@ -290,7 +302,7 @@ def classify_tasks(path_to_master, path_to_descriptions, path_to_results,
         except FileNotFoundError as e:
             raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model") from e
         
-        sbert_task = path_to_master + 'tte_models/' + manifest.get("tech_model") if sbert_task is None else sbert_task
+        sbert_task = path_to_master + 'tte_models/' + manifest.get("task_model") if sbert_task is None else sbert_task
 
     print(f"\n{'='*60}")
     print(f"TTE Task Classification")
@@ -336,7 +348,7 @@ def classify_tasks(path_to_master, path_to_descriptions, path_to_results,
 
         # Save classification file
         onet = onet[["task_ref", "task_cat"]]
-        output_path = f'{path_to_results}'
+        output_path = f'{path_to_output}'
         onet.to_csv(output_path, index=False)
         
         print(f"Total tasks classified: {len(onet)}")
