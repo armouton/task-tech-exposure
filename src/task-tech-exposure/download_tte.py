@@ -5,7 +5,6 @@ import requests
 import zipfile
 import json
 import time
-from datetime import datetime
 from pathlib import Path
 import re
 from typing import Dict, Set, Optional, List
@@ -16,10 +15,10 @@ class TTEDownloader:
     rate limiting, and error handling.
     """
     
-    def __init__(self, local_output_dir: str):
-        self.local_output_dir = Path(local_output_dir)
-        self.local_output_dir.mkdir(parents=True, exist_ok=True)
-        self.local_manifest_path = self.local_output_dir / "tte/zenodo_manifest.json"
+    def __init__(self, path_to_data: str):
+        self.path_to_data = Path(path_to_data)
+        self.path_to_data.mkdir(parents=True, exist_ok=True)
+        self.local_manifest_path = self.path_to_data / "tte/zenodo_manifest.json"
         
         # Proper headers for Zenodo
         self.headers = {
@@ -122,14 +121,14 @@ class TTEDownloader:
     def _determine_years_to_download(
         self, 
         remote_manifest: Dict, 
-        start_date: datetime, 
-        end_date: datetime
+        start_year: int, 
+        end_year: int
     ) -> Dict:
         """
-        Filter manifest to only include files for years in the date range.
+        Filter manifest to only include files for years in the year range.
         Also includes non-year files (models, onet, manifest, etc.)
         """
-        years_in_range = set(range(start_date.year, end_date.year + 1))
+        years_in_range = set(range(start_year, end_year + 1))
         manifest_to_download = {
             "version": remote_manifest.get("version"),
             "files": {}
@@ -180,13 +179,13 @@ class TTEDownloader:
                 if filename.endswith('.zip'):
                     # For zip files, check if extracted directory exists
                     dir_name = filename.replace('.zip', '')
-                    local_dir = self.local_output_dir / "tte" / dir_name
+                    local_dir = self.path_to_data / "tte" / dir_name
                     if not local_dir.exists():
                         print(f"  Missing extracted data for {filename}")
                         files_to_download[filename] = file_info
                 else:
                     # For non-zip files, check if file exists
-                    local_file = self.local_output_dir / "tte" / filename
+                    local_file = self.path_to_data / "tte" / filename
                     if not local_file.exists():
                         print(f"  Missing file: {filename}")
                         files_to_download[filename] = file_info
@@ -198,7 +197,7 @@ class TTEDownloader:
         Download and extract files from Zenodo.
         Uses proper error handling and rate limiting.
         """
-        tte_path = self.local_output_dir / 'tte'
+        tte_path = self.path_to_data / 'tte'
         tte_path.mkdir(exist_ok=True)
         
         total_files = len(manifest['files'])
@@ -294,34 +293,38 @@ class TTEDownloader:
     
     def download_tte_data(
         self,
-        from_date: str,
-        to_date: str,
-        remote_url: str,
+        from_year: int,
+        to_year: int,
+        doi_url: str,
         force_update: bool = False
     ):
         """
         Main method to download and process TTE data.
         
         Args:
-            from_date: Start date in format 'YYYY-MM-DD'
-            to_date: End date in format 'YYYY-MM-DD'
-            remote_url: Zenodo DOI URL
+            from_year: Start year (e.g., 2007)
+            to_year: End year (e.g., 2023)
+            doi_url: Zenodo DOI URL
             force_update: If True, re-download all files even if they exist
         """
         print(f"\n{'='*60}")
         print(f"TTE Dataset Downloader")
         print(f"{'='*60}")
-        print(f"Date range: {from_date} to {to_date}")
-        print(f"Source: {remote_url}")
-        print(f"Output directory: {self.local_output_dir}")
+        print(f"Year range: {from_year} to {to_year}")
+        print(f"Source: {doi_url}")
+        print(f"Output directory: {self.path_to_data}")
         print(f"{'='*60}\n")
         
-        # Parse dates
-        start_date = pd.to_datetime(from_date)
-        end_date = pd.to_datetime(to_date)
+        # Validate years
+        if not isinstance(from_year, int) or not isinstance(to_year, int):
+            raise ValueError("from_year and to_year must be integers")
+        if from_year > to_year:
+            raise ValueError("from_year must be less than or equal to to_year")
+        if from_year < 2001:
+            raise ValueError("Data is only available from 2001 onwards")
         
         # Get Zenodo record ID
-        record_id = self._resolve_doi_to_zenodo_id(remote_url)
+        record_id = self._resolve_doi_to_zenodo_id(doi_url)
         
         # Fetch remote manifest
         remote_manifest = self._get_zenodo_manifest(record_id)
@@ -331,7 +334,7 @@ class TTEDownloader:
         
         # Filter to years in range
         year_filtered_manifest = self._determine_years_to_download(
-            remote_manifest, start_date, end_date
+            remote_manifest, from_year, to_year
         )
         
         # Determine what needs downloading
@@ -354,22 +357,22 @@ class TTEDownloader:
         print(f"{'='*60}\n")
 
 
-def download_tte(
-    local_output_dir: str,
-    from_date: str = None,
-    to_date: str = None,
-    remote_url: str = "https://doi.org/10.5281/zenodo.17643646",
+def download_data(
+    path_to_data: str,
+    from_year: int = None,
+    to_year: int = None,
+    doi_url: str = "https://doi.org/10.5281/zenodo.17643646",
     force_update: bool = False
 ):
     """
     Convenience function to download TTE dataset.
     
     Args:
-        from_date: Start date in format 'YYYY-MM-DD'
-        to_date: End date in format 'YYYY-MM-DD'
-        remote_url: Zenodo DOI URL
-        local_output_dir: Directory to save data
+        path_to_data: Directory to save data
+        from_year: Start year (e.g., 2007)
+        to_year: End year (e.g., 2023)
+        doi_url: Zenodo DOI URL
         force_update: If True, re-download all files
     """
-    downloader = TTEDownloader(local_output_dir)
-    downloader.download_tte_data(from_date, to_date, remote_url, force_update)
+    downloader = TTEDownloader(path_to_data)
+    downloader.download_tte_data(from_year, to_year, doi_url, force_update)
