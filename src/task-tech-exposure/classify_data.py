@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import torch
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 # ================== CLASSIFY DATA =================
@@ -40,7 +41,7 @@ def initialize_model(path_to_master, path_to_descriptions, path_to_results, sber
         raise FileNotFoundError(f"✗ SBERT model not found at {sbert_model}")
     
     try:
-        model = SentenceTransformer(sbert_model)
+        model = SentenceTransformer(sbert_model, device=DEVICE)
     except Exception as e:
         raise Exception(f"✗ Failed to load SBERT model: {e}") from e
 
@@ -203,7 +204,7 @@ def classify_patents(path_to_data, path_to_results,
             text_path = f'{path_to_master}{item}/patents/patent_text_{year}.csv'
             
             try:
-                pat_embed = torch.tensor(try_load_npy(embed_path))
+                pat_embed = torch.tensor(try_load_npy(embed_path), device=DEVICE)
                 patents_year = try_load_csv(text_path, 
                                            usecols=["patent_id", "abstract", "date_earliest"],
                                            abort=True)
