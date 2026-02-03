@@ -18,8 +18,8 @@ dependencies = [
     "sentence_transformers",
     "torch",
 ]
-license = {text = "MIT"}
-license-files = ["LICENCSE.txt"]
+license = text = "MIT"
+license-files = ["LICENSE.txt"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
