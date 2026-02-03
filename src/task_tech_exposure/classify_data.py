@@ -5,10 +5,21 @@ import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import torch
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 # ================== CLASSIFY DATA =================
+
+# DETERMINE DEVICE FOR TORCH OPERATIONS
+def get_device():
+    """Determine the best available device for PyTorch operations."""
+    if torch.cuda.is_available():
+        return 'cuda'
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return 'mps'
+    else:
+        return 'cpu'
+
+device = get_device()
 
 # CALCULATE SIMILARITY SCORES
 def sim_scores(emb1, emb2):
@@ -20,14 +31,13 @@ def sim_scores(emb1, emb2):
 
 
 # INITIALIZE MODEL AND CHECK DIRECTORIES
-def initialize_model(path_to_master, path_to_descriptions, path_to_results, sbert_model):
+def initialize_model(path_to_master, path_to_descriptions, sbert_model):
     """
     Initialize SBERT model and verify required directories exist.
     
     Args:
         path_to_master: Path to master data directory
         path_to_descriptions: Path to category descriptions
-        path_to_results: Path to output directory
         sbert_model: Path to SBERT model
         
     Returns:
@@ -41,7 +51,7 @@ def initialize_model(path_to_master, path_to_descriptions, path_to_results, sber
         raise FileNotFoundError(f"✗ SBERT model not found at {sbert_model}")
     
     try:
-        model = SentenceTransformer(sbert_model, device=DEVICE)
+        model = SentenceTransformer(sbert_model, device=device)
     except Exception as e:
         raise Exception(f"✗ Failed to load SBERT model: {e}") from e
 
@@ -159,7 +169,7 @@ def classify_patents(path_to_data, path_to_results,
     try:
         # Initialize model and check directories
         model = initialize_model(path_to_master, path_to_descriptions, 
-                                path_to_results, sbert_tech)
+                                 sbert_tech)
 
         # Load and embed tech categories
         category_path = f'{path_to_descriptions}'
@@ -204,7 +214,7 @@ def classify_patents(path_to_data, path_to_results,
             text_path = f'{path_to_master}{item}/patents/patent_text_{year}.csv'
             
             try:
-                pat_embed = torch.tensor(try_load_npy(embed_path), device=DEVICE)
+                pat_embed = torch.tensor(try_load_npy(embed_path), device=device)
                 patents_year = try_load_csv(text_path, 
                                            usecols=["patent_id", "abstract", "date_earliest"],
                                            abort=True)
@@ -315,7 +325,7 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
     try:
         # Initialize model and check directories
         model = initialize_model(path_to_master, path_to_descriptions, 
-                                path_to_results, sbert_task)
+                                 sbert_task)
 
         # Load the descriptions
         desc_path = f'{path_to_descriptions}'
@@ -332,7 +342,7 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         onet = try_load_csv(onet_path, 
                            usecols=["task_ref", "task"], 
                            abort=True)
-        onet_embed = torch.tensor(try_load_npy(embed_path))
+        onet_embed = torch.tensor(try_load_npy(embed_path), device=device)
         
         print(f"Loaded {len(onet)} task statements")
 
