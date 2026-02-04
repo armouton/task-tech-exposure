@@ -20,6 +20,7 @@ def get_device():
         return 'cpu'
 
 device = get_device()
+print(f"Using device: {device}")
 
 # CALCULATE SIMILARITY SCORES
 def sim_scores(emb1, emb2):

@@ -30,7 +30,9 @@ Package installation requires Git, and can be executed in the terminal:
 pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
 ```
 
-Execution requires, at a minimum, a pair of paths indicating the directories in which to store the data and the exposure measures. Note that the full dataset is approximately 10GB, but that file download can be limited to a particular date range.
+*Sentencetransformers* and its dependencies will be installed if not already present. Note that some dependencies, such as *torch*, have different installation options, and if a particular option is desired then these should be installed separately.
+
+Running the package requires, at a minimum, a pair of paths indicating the directories in which to store the data and the exposure measures. Note that the full dataset is approximately 10GB, but that file download can be limited to a particular date range.
 
 ```python
 import task_tech_exposure as tte
