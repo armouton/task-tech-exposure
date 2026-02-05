@@ -20,7 +20,6 @@ def get_device():
         return 'cpu'
 
 device = get_device()
-print(f"Using device: {device}")
 
 # CALCULATE SIMILARITY SCORES
 def sim_scores(emb1, emb2):
@@ -165,6 +164,7 @@ def classify_patents(path_to_data, path_to_results,
     print(f"SBERT model: {sbert_tech}")
     print(f"Cutoff: {cutoff}")
     print(f"Classification method: {f'Mutually exclusive groups with {tech_priority}' if tech_groups else 'All matching categories'}")
+    print(f"Using device: {device}")
     print(f"{'='*60}\n")
     
     try:
