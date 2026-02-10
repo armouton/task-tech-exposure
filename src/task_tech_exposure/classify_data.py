@@ -31,14 +31,14 @@ def sim_scores(emb1, emb2):
 
 
 # INITIALIZE MODEL AND CHECK DIRECTORIES
-def initialize_model(path_to_master, path_to_descriptions, sbert_model):
+def initialize_model(path_to_master, path_to_descriptions, model):
     """
     Initialize SBERT model and verify required directories exist.
     
     Args:
         path_to_master: Path to master data directory
         path_to_descriptions: Path to category descriptions
-        sbert_model: Path to SBERT model
+        model: Path to SBERT model
         
     Returns:
         SentenceTransformer model instance
@@ -47,11 +47,11 @@ def initialize_model(path_to_master, path_to_descriptions, sbert_model):
         FileNotFoundError: If SBERT model or required directories are missing
     """
     # Load SBERT model
-    if not os.path.exists(sbert_model):
-        raise FileNotFoundError(f"✗ SBERT model not found at {sbert_model}")
+    if not os.path.exists(model):
+        raise FileNotFoundError(f"✗ SBERT model not found at {model}")
     
     try:
-        model = SentenceTransformer(sbert_model, device=device)
+        model = SentenceTransformer(model, device=device)
     except Exception as e:
         raise Exception(f"✗ Failed to load SBERT model: {e}") from e
 
@@ -123,8 +123,8 @@ def try_load_npy(path):
 # CLASSIFY PATENTS
 def classify_patents(path_to_data, path_to_results,
                      path_to_output=None, path_to_descriptions=None,
-                     sbert_tech=None, cutoff=None, tech_groups=None,
-                     tech_priority="order"):
+                     model=None, cutoff=None, groups=None,
+                     priority="order"):
     """
     Classify patents into technology categories based on semantic similarity.
     
@@ -133,10 +133,10 @@ def classify_patents(path_to_data, path_to_results,
         path_to_results: Path to output directory
         path_to_output: Path to output file (optional)
         path_to_descriptions: Path to category descriptions (optional)
-        sbert_tech: Path to SBERT model
+        model: Path to SBERT model
         cutoff: Similarity threshold for classification
-        tech_groups: List of mutually exclusive technology groups (optional)
-        tech_priority: Priority method for groups - "order" or "score" (default: "order")
+        groups: List of mutually exclusive technology groups (optional)
+        priority: Priority method for groups - "order" or "score" (default: "order")
     """
     # Load directories from manifest if not specified
     path_to_master = path_to_data + 'tte/'
@@ -146,7 +146,7 @@ def classify_patents(path_to_data, path_to_results,
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/tech_categories.csv'
         if not os.path.exists(path_to_descriptions):
             raise FileNotFoundError("✗ Technology category descriptions file not found, please specify path")
-    if cutoff is None or sbert_tech is None:
+    if cutoff is None or model is None:
         """Load local manifest if it exists."""
         try:
             with open(path_to_master + 'dataset_manifest.json', 'r') as f:
@@ -155,22 +155,21 @@ def classify_patents(path_to_data, path_to_results,
             raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model and cutoff") from e
         
         cutoff = manifest.get("tech_cutoff") if cutoff is None else cutoff
-        sbert_tech = path_to_master + 'tte_models/' + manifest.get("tech_model") if sbert_tech is None else sbert_tech
+        model = path_to_master + 'tte_models/' + manifest.get("tech_model") if model is None else model
 
     print(f"\n{'='*60}")
     print(f"TTE Patent Classification")
     print(f"{'='*60}")
     print(f"Category file: {path_to_descriptions}")
-    print(f"SBERT model: {sbert_tech}")
+    print(f"SBERT model: {model}")
     print(f"Cutoff: {cutoff}")
-    print(f"Classification method: {f'Mutually exclusive groups with {tech_priority}' if tech_groups else 'All matching categories'}")
+    print(f"Classification method: {f'Mutually exclusive groups with {priority}' if groups else 'All matching categories'}")
     print(f"Using device: {device}")
     print(f"{'='*60}\n")
     
     try:
         # Initialize model and check directories
-        model = initialize_model(path_to_master, path_to_descriptions, 
-                                 sbert_tech)
+        model = initialize_model(path_to_master, path_to_descriptions, model)
 
         # Load and embed tech categories
         category_path = f'{path_to_descriptions}'
@@ -184,10 +183,10 @@ def classify_patents(path_to_data, path_to_results,
         tech_embed = model.encode(tech_class['gpt_description'].tolist(), 
                                   convert_to_tensor=True)
 
-        # Process tech_groups if provided
-        if tech_groups is not None:
-            # Validate tech_groups
-            for i, group in enumerate(tech_groups):
+        # Process groups if provided
+        if groups is not None:
+            # Validate groups
+            for i, group in enumerate(groups):
                 if not isinstance(group, (list, tuple)):
                     raise ValueError(f"✗ Group {i} must be a list or tuple")
                 if any(idx >= len(tech_names) or idx < 0 for idx in group):
@@ -224,15 +223,15 @@ def classify_patents(path_to_data, path_to_results,
                 similarity_scores = sim_scores(pat_embed, tech_embed).cpu().numpy()
 
                 # If no groups, classify patents into all matching categories
-                if tech_groups is None:
+                if groups is None:
                     for i, tech_name in enumerate(tech_names):
                         patents_year[tech_name] = (similarity_scores[:, i] >= cutoff).astype(int)
 
                 # Otherwise, classify patents into mutually exclusive groups
                 else:
-                    for group in tech_groups:
+                    for group in groups:
                         # If score priority, assign patent to highest score
-                        if tech_priority == "score":
+                        if priority == "score":
                             group_scores = similarity_scores[:, group]
                             top_techs = np.argmax(group_scores, axis=1)
                             for i, tech in enumerate(group):
@@ -242,7 +241,7 @@ def classify_patents(path_to_data, path_to_results,
                                 )
                             
                         # If order priority, assign patent to first match
-                        elif tech_priority == "order":
+                        elif priority == "order":
                             tech_match = np.zeros(len(patents_year)).astype(int)
                             for tech in group:
                                 current_match = (similarity_scores[:, tech] >= cutoff).astype(int)
@@ -250,7 +249,7 @@ def classify_patents(path_to_data, path_to_results,
                                 patents_year[tech_names[tech]] = current_match
                                 tech_match = tech_match + current_match
                         else:
-                            raise ValueError(f"  ✗ Invalid tech_priority: {tech_priority}. Must be 'order' or 'score'")
+                            raise ValueError(f"  ✗ Invalid priority: {priority}. Must be 'order' or 'score'")
                 
                 # Store results
                 patents.append(patents_year)
@@ -287,7 +286,7 @@ def classify_patents(path_to_data, path_to_results,
 
 # CLASSIFY TASK STATEMENTS
 def classify_tasks(path_to_data, path_to_results, path_to_output=None,
-                   path_to_descriptions=None, sbert_task=None):
+                   path_to_descriptions=None, model=None):
     """
     Classify O*NET task statements into task categories based on semantic similarity.
     
@@ -296,7 +295,7 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         path_to_results: Path to output directory
         path_to_output: Path to output file (optional)
         path_to_descriptions: Path to category descriptions (optional)
-        sbert_task: Path to SBERT model
+        model: Path to SBERT model
     """
     # Load directories from manifest if not specified
     path_to_master = path_to_data + 'tte/'
@@ -306,7 +305,7 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/task_categories.csv'
         if not os.path.exists(path_to_descriptions):
             raise FileNotFoundError("✗ Task category descriptions file not found, please specify path")
-    if sbert_task is None:
+    if model is None:
         """Load local manifest if it exists."""
         try:
             with open(path_to_master + 'dataset_manifest.json', 'r') as f:
@@ -314,19 +313,18 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         except FileNotFoundError as e:
             raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model") from e
         
-        sbert_task = path_to_master + 'tte_models/' + manifest.get("task_model") if sbert_task is None else sbert_task
+        model = path_to_master + 'tte_models/' + manifest.get("task_model") if model is None else model
 
     print(f"\n{'='*60}")
     print(f"TTE Task Classification")
     print(f"{'='*60}")
     print(f"Category file: {path_to_descriptions}")
-    print(f"SBERT model: {sbert_task}")
+    print(f"SBERT model: {model}")
     print(f"{'='*60}\n")
     
     try:
         # Initialize model and check directories
-        model = initialize_model(path_to_master, path_to_descriptions, 
-                                 sbert_task)
+        model = initialize_model(path_to_master, path_to_descriptions, model)
 
         # Load the descriptions
         desc_path = f'{path_to_descriptions}'

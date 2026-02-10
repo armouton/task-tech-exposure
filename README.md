@@ -94,18 +94,18 @@ Classifies patents into technology categories using fine-tuned sentence embeddin
 - `path_to_results` (str, required): Path where classification results will be saved.
 - `path_to_output` (str, optional): Specific path and filename for output CSV. Defaults to 'tech_classification.csv' in results directory.
 - `path_to_descriptions` (str, optional): Path to CSV file containing technology category descriptions. Uses default files if not specified (see [Quick Start](#quick-start) above).
-- `sbert_tech` (str, optional): Path to sentence transformer model for technology classification. Uses default fine-tuned model from manifest if None.
-- `tech_cutoff` (float, optional): Similarity threshold for classifying patents into technology categories. Default value is taken from the `dataset_manifest.json` file, and is based on a 50% marginal accuracy threshold.
-- `tech_groups` (list of lists, optional): Groups of technology categories for which classifications should be mutually exclusive (*e.g.* [[0,1], [3]] indicates that a patent should be matched to *at most* one of the first two categories in the descriptions file).
-- `tech_priority` (str, optional): Method for resolving grouped categories. 'score' selects highest similarity within group; 'order' uses list ordering. Default is 'score'. 
+- `model` (str, optional): Path to sentence transformer model for technology classification. Uses default fine-tuned model from manifest if None.
+- `cutoff` (float, optional): Similarity threshold for classifying patents into technology categories. Default value is taken from the `dataset_manifest.json` file, and is based on a 50% marginal accuracy threshold.
+- `groups` (list of lists, optional): Groups of technology categories for which classifications should be mutually exclusive (*e.g.* [[0,1], [3]] indicates that a patent should be matched to *at most* one of the first two categories in the descriptions file).
+- `priority` (str, optional): Method for resolving grouped categories. 'score' selects highest similarity within group; 'order' uses list ordering. Default is 'score'. 
 
 **Example:**
 ```python
 tte.classify_patents(path_to_data="/Users/username/tte_data/",
                      path_to_results="/Users/username/tte_results/",
-                     tech_cutoff=0.75,
-                     tech_groups=[[0,1], [3,2]],
-                     tech_priority="score")
+                     cutoff=0.75,
+                     groups=[[0,1], [3,2]],
+                     priority="score")
 ```
 
 **Output:** CSV file containing patent IDs with assigned technology categories.
@@ -123,7 +123,7 @@ Classifies occupational task statements into functional categories using fine-tu
 - `path_to_results` (str, required): Path where classification results will be saved.
 - `path_to_output` (str, optional): Specific path and filename for output CSV. Defaults to 'task_classification.csv' in results directory.
 - `path_to_descriptions` (str, optional): Path to CSV file containing task category descriptions. Uses default files if not specified (see [Quick Start](#quick-start) above).
-- `sbert_task` (str, optional): Path to sentence transformer model for task classification. Uses default fine-tuned model from manifest if None.
+- `model` (str, optional): Path to sentence transformer model for task classification. Uses default fine-tuned model from manifest if None.
 
 **Example:**
 ```python
