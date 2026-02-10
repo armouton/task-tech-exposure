@@ -64,8 +64,8 @@ Downloads the matched patent-task dataset from the DOI repository to a local dir
 **Purpose:** Retrieves matched USPTO patent applications and GPT-expanded ONET task statements, the Sentence-BERT embeddings for both sets of data, and supplementary employment and wage data. The dataset can be filtered by date range to focus on specific time periods and reduce download time.
 
 **Key Arguments:**
-- `from_year` (int, optional): Start date in 'YYYY' format. If None, downloads full dataset from earliest available annual file (2001).
-- `to_year` (int, optional): End date in 'YYYY' format. If None, downloads full dataset through most recent available annual file.
+- `from_year` (int, optional): Start date in YYYY format. If None, downloads full dataset from earliest available annual file (2001).
+- `to_year` (int, optional): End date in YYYY format. If None, downloads full dataset through most recent available annual file.
 - `path_to_data` (str, required): Path where dataset files will be saved.
 - `doi_url` (str, optional): Alternative URL if downloading from previous data version. Defaults to stable DOI for current version.
 - `force_update` (bool, optional): If True, re-downloads files even if they already exist locally. Default is False.

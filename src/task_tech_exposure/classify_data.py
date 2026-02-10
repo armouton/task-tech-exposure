@@ -221,7 +221,7 @@ def classify_patents(path_to_data, path_to_results,
                                            abort=True)
                 
                 # Obtain similarity scores
-                similarity_scores = np.array(sim_scores(pat_embed, tech_embed))
+                similarity_scores = sim_scores(pat_embed, tech_embed).cpu().numpy()
 
                 # If no groups, classify patents into all matching categories
                 if tech_groups is None:
@@ -354,8 +354,8 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
                                   convert_to_tensor=True)
 
         # Classify tasks
-        similarity_scores = sim_scores(onet_embed, task_embed)
-        onet["task_cat"] = np.argmax(np.array(similarity_scores), axis=1)
+        similarity_scores = sim_scores(onet_embed, task_embed).cpu().numpy()
+        onet["task_cat"] = np.argmax(similarity_scores, axis=1)
         onet["task_cat"] = onet["task_cat"].map(task_dict)
 
         # Save classification file
