@@ -374,5 +374,14 @@ def download_data(
         doi_url: Zenodo DOI URL
         force_update: If True, re-download all files
     """
+    if not os.path.exists(path_to_data):
+        print(f"Directory {path_to_data} does not exist, attempting to create...")
+        # If directory missing, attempt to create it
+        try:
+            os.makedirs(path_to_data, exist_ok=True)
+            print(f"Created directory {path_to_data}")
+        except Exception as e:
+            raise Exception(f"Failed to create directory {path_to_data}: {e}")
+
     downloader = TTEDownloader(path_to_data)
     downloader.download_tte_data(from_year, to_year, doi_url, force_update)

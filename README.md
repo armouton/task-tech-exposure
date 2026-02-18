@@ -27,33 +27,34 @@ The package provides access to a living dataset that is updated quarterly with n
 Package installation requires Git, and can be executed in the terminal:
 
 ```bash
-pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
+python3 -m pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
 ```
+Note that Windows users may need to substitute ``python`` for ``python3``.
 
 *Sentencetransformers* and its dependencies will be installed if not already present. Note that some dependencies, such as *torch*, have different installation options, and if a particular option is desired then these should be installed separately.
 
-Running the package requires, at a minimum, a pair of paths indicating the directories in which to store the data and the exposure measures. Note that the full dataset is approximately 10GB, but that file download can be limited to a particular date range.
+Running the package requires, at a minimum, a pair of paths indicating the directories in which to store the data and the exposure measures. Note that the full dataset is approximately 10GB, but that file download can be limited to a particular date range. The example code below ignores all optional arguments:
 
 ```python
 import task_tech_exposure as tte
 
 # Download/update the dataset
-tte.download_data(path_to_data="/path/to/data/", ...)
+tte.download_data(path_to_data="/path/to/data/")
 
 # Classify patents by technology category
 tte.classify_patents(path_to_data="/path/to/data/",
-                     path_to_results="/path/to/results/", ...)
+                     path_to_results="/path/to/results/")
 
 # Classify tasks by functional category
 tte.classify_tasks(path_to_data="/path/to/data/",
-                   path_to_results="/path/to/results/", ...)
+                   path_to_results="/path/to/results/")
 
 # Measure exposure
 tte.measure_exposure(path_to_data="/path/to/data/",
-                     path_to_results="/path/to/results/", ...)
+                     path_to_results="/path/to/results/")
 ```
 
-By default, technology and task classification categories are specified in CSV files located at `tte/tte_models/category_descriptions/`. These can be modified directly. Also included are GenAI prompts for expanding short category definitions into longer descriptions more suitable for Sentence-BERT.
+By default, technology and task classification categories are specified in CSV files located at `tte/tte_models/category_descriptions/`. These can be modified in the functional arguments (see below). Also included in the dataset are GenAI prompts for expanding short category definitions into longer descriptions more suitable for Sentence-BERT.
 
 ## Package Contents
 

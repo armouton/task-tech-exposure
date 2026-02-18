@@ -117,8 +117,12 @@ def measure_exposure(path_to_data, path_to_results,
                                ("results", path_to_results)]:
             if not os.path.exists(path):
                 if path_name == "results":
-                    os.makedirs(path, exist_ok=True)
-                    print(f"Created results directory at {path}")
+                    print(f"Directory {path} does not exist, attempting to create...")
+                    try:
+                        os.makedirs(path, exist_ok=True)
+                        print(f"Created directory at {path}")
+                    except Exception as e:
+                        raise Exception(f"Failed to create directory {path}: {e}")
                 else:
                     raise FileNotFoundError(f"✗ {path_name.capitalize()} directory not found at {path}")
             
