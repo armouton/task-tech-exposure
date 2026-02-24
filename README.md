@@ -105,7 +105,7 @@ Classifies patents into technology categories using fine-tuned sentence embeddin
 tte.classify_patents(path_to_data="/Users/username/tte_data/",
                      path_to_results="/Users/username/tte_results/",
                      cutoff=0.75,
-                     groups=[[0,1], [3,2]],
+                     groups=[[0,1], [3,2], [4]],
                      priority="score")
 ```
 
