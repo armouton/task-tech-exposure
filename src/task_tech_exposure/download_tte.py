@@ -19,9 +19,9 @@ class TTEDownloader:
         self.path_to_data.mkdir(parents=True, exist_ok=True)
         self.local_manifest_path = self.path_to_data / "tte/zenodo_manifest.json"
         
-        # Proper headers for Zenodo
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+            'User-Agent': 'task-tech-exposure/0.2.0 (https://github.com/armouton/task-tech-exposure)',
+            'Accept': 'application/json',
         }
         
         # Rate limiting
