@@ -28,18 +28,17 @@ def try_load_csv(path, usecols=None, abort=False):
         return data
     except FileNotFoundError as e:
         if abort:
-            raise FileNotFoundError(f"✗ Required file not found at {path}") from e
+            raise FileNotFoundError(f"ERROR: Required file not found at {path}") from e
         else:
             print(f"Warning: File not found at {path}, skipping")
             return None
     except Exception as e:
-        error_msg = f"✗ Error loading CSV from {path}: {e}"
+        error_msg = f"ERROR: Error loading CSV from {path}: {e}"
         if abort:
             raise Exception(error_msg) from e
         else:
             print(f"Warning: {error_msg}")
             return None
-
 
 def try_load_npy(path):
     """
@@ -58,10 +57,9 @@ def try_load_npy(path):
         data = np.load(path)
         return data
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"✗ Required file not found at {path}") from e
+        raise FileNotFoundError(f"ERROR: Required file not found at {path}") from e
     except Exception as e:
-        raise Exception(f"✗ Failed to load numpy array from {path}: {e}") from e
-
+        raise Exception(f"ERROR: Failed to load numpy array from {path}: {e}") from e
 
 # CALCULATE EXPOSURE MEASURES
 def measure_exposure(path_to_data, path_to_results, 
@@ -96,11 +94,11 @@ def measure_exposure(path_to_data, path_to_results,
     if path_to_tech_classifications is None:
         path_to_tech_classifications = path_to_results + 'tech_classification.csv'
         if not os.path.exists(path_to_tech_classifications):
-            raise FileNotFoundError("✗ Technology classification file not found, please specify path")
+            raise FileNotFoundError("ERROR: Technology classification file not found, please specify path")
     if path_to_task_classifications is None:
         path_to_task_classifications = path_to_results + 'task_classification.csv'
         if not os.path.exists(path_to_task_classifications):
-            raise FileNotFoundError("✗ Task classification file not found, please specify path")
+            raise FileNotFoundError("ERROR: Task classification file not found, please specify path")
     print(f"\n{'='*60}")
     print(f"TTE Exposure Measurement")
     print(f"{'='*60}")
@@ -124,7 +122,7 @@ def measure_exposure(path_to_data, path_to_results,
                     except Exception as e:
                         raise Exception(f"Failed to create directory {path}: {e}")
                 else:
-                    raise FileNotFoundError(f"✗ {path_name.capitalize()} directory not found at {path}")
+                    raise FileNotFoundError(f"ERROR: {path_name.capitalize()} directory not found at {path}")
             
         # Load classification files
         task_class_df = try_load_csv(
@@ -161,7 +159,7 @@ def measure_exposure(path_to_data, path_to_results,
                            if item.startswith('tte_2')])
         
         if not year_dirs:
-            raise FileNotFoundError("✗ No year directories found in master path")
+            raise FileNotFoundError("ERROR: No year directories found in master path")
         
         for item in year_dirs:
             # Validate year directory
@@ -182,7 +180,7 @@ def measure_exposure(path_to_data, path_to_results,
                 continue
         
         if not patent_dates:
-            raise Exception("✗ No patent dates could be loaded")
+            raise Exception("ERROR: No patent dates could be loaded")
         
         patent_dates = pd.concat(patent_dates, ignore_index=True)
         patent_dates["agg_date"] = pd.to_datetime(patent_dates["date_earliest"])
@@ -213,7 +211,7 @@ def measure_exposure(path_to_data, path_to_results,
             patent_dates["agg_date"] = "All Dates"
             print("  Aggregating over all dates")
         else:
-            raise ValueError(f"✗ Frequency '{frequency}' not recognized. Must be 'annual', 'quarterly', 'monthly', or 'all'")
+            raise ValueError(f"ERROR: Frequency '{frequency}' not recognized. Must be 'annual', 'quarterly', 'monthly', or 'all'")
         
         # Set occupational aggregation groups
         if level == "aggregate":
@@ -254,7 +252,7 @@ def measure_exposure(path_to_data, path_to_results,
             occ_wages["group_var"] = occ_wages["group_var"].str[:occdig]
             print(f"  Aggregating by {digits}-digit occupation codes")
         else:
-            raise ValueError(f"✗ Aggregation level '{level}' not recognized. Must be 'aggregate', 'percentiles', or 'occupation'")
+            raise ValueError(f"ERROR: Aggregation level '{level}' not recognized. Must be 'aggregate', 'percentiles', or 'occupation'")
 
         # Set occupation weights
         if weights == "both":
@@ -272,7 +270,7 @@ def measure_exposure(path_to_data, path_to_results,
             occ_weights["occ_weight"] = 1
             print("  Weighting by task importance only")
         else:
-            raise ValueError(f"✗ Weights '{weights}' not recognized. Must be 'both', 'none', 'occupation', or 'task'")
+            raise ValueError(f"ERROR: Weights '{weights}' not recognized. Must be 'both', 'none', 'occupation', or 'task'")
         
         # Combine task data
         task_data = onet_tasks[["occ_id", "task_ref", "version"]].merge(
@@ -613,7 +611,7 @@ def measure_exposure(path_to_data, path_to_results,
         print(f"Results saved to {file_dest}.csv")
 
         print(f"\n{'='*60}")
-        print(f"✓ Exposure measurement complete")
+        print(f"OK Exposure measurement complete")
         print(f"{'='*60}\n")
         
     except Exception as e:

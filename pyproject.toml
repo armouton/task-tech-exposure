@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "task-tech-exposure"
-version = "0.1.0"
-description = "This package implements the methodology of 'Task-Level Measures of Technological Change: A Language Model Approach' (2026). It handles file download and management, data classification, and exposure measure generation."
+version = "0.2.0"
+description = "This package implements the methodology of 'Measuring Task-Level Technological Exposure: A Language Model Approach' (2026). It handles file download and management, data classification, and exposure measure generation."
 readme = "README.md"
 authors = [
     { name="Andre Mouton", email="moutona@wfu.edu" },
@@ -19,6 +19,14 @@ dependencies = [
 ]
 license = "MIT"
 license-files = ["LICENSE.txt"]
+
+[project.optional-dependencies]
+train = [
+    "openai>=1.0.0",
+    "scikit-learn>=1.0",
+    "statsmodels>=0.14",
+    "datasets>=2.0",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",

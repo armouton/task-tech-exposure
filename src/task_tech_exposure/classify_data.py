@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 import torch
 
 
-# ================== CLASSIFY DATA =================
+# ================== HELPER FUNCTIONS =================
 
 # DETERMINE DEVICE FOR TORCH OPERATIONS
 def get_device():
@@ -29,7 +29,6 @@ def sim_scores(emb1, emb2):
     emb2_norm = torch.norm(emb2, dim=1, keepdim=True)
     return torch.mm(emb1, emb2.t()) / (emb1_norm * emb2_norm.t())
 
-
 # INITIALIZE MODEL AND CHECK DIRECTORIES
 def initialize_model(path_to_master, path_to_descriptions, model):
     """
@@ -48,12 +47,17 @@ def initialize_model(path_to_master, path_to_descriptions, model):
     """
     # Load SBERT model
     if not os.path.exists(model):
-        raise FileNotFoundError(f"✗ SBERT model not found at {model}")
-    
+        raise FileNotFoundError(f"ERROR: SBERT model not found at {model}")
+
     try:
-        model = SentenceTransformer(model, device=device)
+        model_name = os.path.basename(model).lower()
+        if 'qwen3' in model_name:
+            model = SentenceTransformer(model, device=device,
+                                        tokenizer_kwargs={"fix_mistral_regex": True})
+        else:
+            model = SentenceTransformer(model, device=device)
     except Exception as e:
-        raise Exception(f"✗ Failed to load SBERT model: {e}") from e
+        raise Exception(f"ERROR: Failed to load SBERT model: {e}") from e
 
     # Check for required directories
     for path_name, path in [("master", path_to_master), ("descriptions", path_to_descriptions)]:
@@ -61,7 +65,6 @@ def initialize_model(path_to_master, path_to_descriptions, model):
             raise FileNotFoundError(f"{path_name.capitalize()} directory not found at {path}")
 
     return model
-
 
 # LOAD FILES WITH ERROR HANDLING
 def try_load_csv(path, usecols=None, abort=False):
@@ -84,18 +87,17 @@ def try_load_csv(path, usecols=None, abort=False):
         return data
     except FileNotFoundError as e:
         if abort:
-            raise FileNotFoundError(f"✗ Required file not found at {path}") from e
+            raise FileNotFoundError(f"ERROR: Required file not found at {path}") from e
         else:
             print(f"Warning: File not found at {path}, skipping")
             return None
     except Exception as e:
-        error_msg = f"✗ Error loading CSV from {path}: {e}"
+        error_msg = f"ERROR: Error loading CSV from {path}: {e}"
         if abort:
             raise Exception(error_msg) from e
         else:
             print(f"Warning: {error_msg}")
             return None
-
 
 def try_load_npy(path):
     """
@@ -115,10 +117,12 @@ def try_load_npy(path):
         data = np.load(path)
         return data
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"✗ Required file not found at {path}") from e
+        raise FileNotFoundError(f"ERROR: Required file not found at {path}") from e
     except Exception as e:
-        raise Exception(f"✗ Failed to load numpy array from {path}: {e}") from e
+        raise Exception(f"ERROR: Failed to load numpy array from {path}: {e}") from e
 
+
+# ================== CLASSIFY DATA =================
 
 # CLASSIFY PATENTS
 def classify_patents(path_to_data, path_to_results,
@@ -145,14 +149,14 @@ def classify_patents(path_to_data, path_to_results,
     if path_to_descriptions is None:
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/tech_categories.csv'
         if not os.path.exists(path_to_descriptions):
-            raise FileNotFoundError("✗ Technology category descriptions file not found, please specify path")
+            raise FileNotFoundError("ERROR: Technology category descriptions file not found, please specify path")
     if cutoff is None or model is None:
         """Load local manifest if it exists."""
         try:
             with open(path_to_master + 'dataset_manifest.json', 'r') as f:
                 manifest = json.load(f)
         except FileNotFoundError as e:
-            raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model and cutoff") from e
+            raise FileNotFoundError("ERROR: Dataset manifest not found, please specify SBERT model and cutoff") from e
         
         cutoff = manifest.get("tech_cutoff") if cutoff is None else cutoff
         model = path_to_master + 'tte_models/' + manifest.get("tech_model") if model is None else model
@@ -176,56 +180,66 @@ def classify_patents(path_to_data, path_to_results,
         tech_class = try_load_csv(category_path, abort=True)
         
         if 'name' not in tech_class.columns or 'gpt_description' not in tech_class.columns:
-            raise ValueError("✗ Category file must contain 'name' and 'gpt_description' columns")
+            raise ValueError("ERROR: Category file must contain 'name' and 'gpt_description' columns")
         
         tech_names = tech_class['name'].tolist()
         print(f"Encoded {len(tech_names)} technology categories")
-        tech_embed = model.encode(tech_class['gpt_description'].tolist(), 
-                                  convert_to_tensor=True)
+        tech_embed_full = model.encode(tech_class['gpt_description'].tolist(),
+                                       convert_to_tensor=True)
+
+        # Broadcast scalar cutoff to per-category list
+        if isinstance(cutoff, (int, float)):
+            cutoff = [cutoff] * len(tech_names)
+        elif len(cutoff) != len(tech_names):
+            raise ValueError(f"ERROR: cutoff list length ({len(cutoff)}) must match number of technology categories ({len(tech_names)})")
 
         # Process groups if provided
         if groups is not None:
             # Validate groups
             for i, group in enumerate(groups):
                 if not isinstance(group, (list, tuple)):
-                    raise ValueError(f"✗ Group {i} must be a list or tuple")
+                    raise ValueError(f"ERROR: Group {i} must be a list or tuple")
                 if any(idx >= len(tech_names) or idx < 0 for idx in group):
-                    raise ValueError(f"✗ Group {i} contains invalid indices (must be 0-{len(tech_names)-1})")
+                    raise ValueError(f"ERROR: Group {i} contains invalid indices (must be 0-{len(tech_names)-1})")
 
         # Loop over years to save memory
         patents = []
-        year_dirs = sorted([item for item in os.listdir(path_to_master) 
+        year_dirs = sorted([item for item in os.listdir(path_to_master)
                            if item.startswith('tte_2')])
-        
+
         if not year_dirs:
             raise FileNotFoundError("No year directories found in master path")
-        
+
         print(f"Classifying {len(year_dirs)} year directories...")
-        
+
         for item in year_dirs:
             # Validate year directory
             year = item.replace('tte_', '').split('.')[0]
             if not year.isdigit() or len(year) != 4:
                 print(f"Warning: Skipping invalid year directory: {item}")
                 continue
-            
+
             # Load patent data and embeddings
             embed_path = f'{path_to_master}{item}/patents/patent_embed_{year}.npy'
             text_path = f'{path_to_master}{item}/patents/patent_text_{year}.csv'
-            
+
             try:
                 pat_embed = torch.tensor(try_load_npy(embed_path), device=device)
-                patents_year = try_load_csv(text_path, 
+                patents_year = try_load_csv(text_path,
                                            usecols=["patent_id", "abstract", "date_earliest"],
                                            abort=True)
-                
+
+                # Truncate tech embeddings to match dimensionality of pre-embedded patents (supports MRL)
+                embed_dim = pat_embed.shape[1]
+                tech_embed = tech_embed_full[:, :embed_dim]
+
                 # Obtain similarity scores
                 similarity_scores = sim_scores(pat_embed, tech_embed).cpu().numpy()
 
                 # If no groups, classify patents into all matching categories
                 if groups is None:
                     for i, tech_name in enumerate(tech_names):
-                        patents_year[tech_name] = (similarity_scores[:, i] >= cutoff).astype(int)
+                        patents_year[tech_name] = (similarity_scores[:, i] >= cutoff[i]).astype(int)
 
                 # Otherwise, classify patents into mutually exclusive groups
                 else:
@@ -236,20 +250,20 @@ def classify_patents(path_to_data, path_to_results,
                             top_techs = np.argmax(group_scores, axis=1)
                             for i, tech in enumerate(group):
                                 patents_year[tech_names[tech]] = (
-                                    (top_techs == i).astype(int) * 
-                                    (group_scores[:, i] >= cutoff)
+                                    (top_techs == i).astype(int) *
+                                    (group_scores[:, i] >= cutoff[tech])
                                 )
                             
                         # If order priority, assign patent to first match
                         elif priority == "order":
                             tech_match = np.zeros(len(patents_year)).astype(int)
                             for tech in group:
-                                current_match = (similarity_scores[:, tech] >= cutoff).astype(int)
+                                current_match = (similarity_scores[:, tech] >= cutoff[tech]).astype(int)
                                 current_match = current_match * (1 - tech_match)
                                 patents_year[tech_names[tech]] = current_match
                                 tech_match = tech_match + current_match
                         else:
-                            raise ValueError(f"  ✗ Invalid priority: {priority}. Must be 'order' or 'score'")
+                            raise ValueError(f"  ERROR: Invalid priority: {priority}. Must be 'order' or 'score'")
                 
                 # Store results
                 patents.append(patents_year)
@@ -260,7 +274,7 @@ def classify_patents(path_to_data, path_to_results,
                 continue
 
         if not patents:
-            raise Exception("✗ No patents were successfully classified")
+            raise Exception("ERROR: No patents were successfully classified")
         
         patents = pd.concat(patents, ignore_index=True)
 
@@ -275,14 +289,13 @@ def classify_patents(path_to_data, path_to_results,
             print(f"  {tech_name}: {count}")
         print(f"Results saved to {output_path}")
         print(f"\n{'='*60}")
-        print(f"✓ Classification complete")
+        print(f"OK Classification complete")
         print(f"{'='*60}\n")
 
         
     except Exception as e:
         print(f"Error during patent classification: {e}")
         raise
-
 
 # CLASSIFY TASK STATEMENTS
 def classify_tasks(path_to_data, path_to_results, path_to_output=None,
@@ -304,14 +317,14 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
     if path_to_descriptions is None:
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/task_categories.csv'
         if not os.path.exists(path_to_descriptions):
-            raise FileNotFoundError("✗ Task category descriptions file not found, please specify path")
+            raise FileNotFoundError("ERROR: Task category descriptions file not found, please specify path")
     if model is None:
         """Load local manifest if it exists."""
         try:
             with open(path_to_master + 'dataset_manifest.json', 'r') as f:
                 manifest = json.load(f)
         except FileNotFoundError as e:
-            raise FileNotFoundError("✗ Dataset manifest not found, please specify SBERT model") from e
+            raise FileNotFoundError("ERROR: Dataset manifest not found, please specify SBERT model") from e
         
         model = path_to_master + 'tte_models/' + manifest.get("task_model") if model is None else model
 
@@ -333,7 +346,7 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
                                 abort=True)
         
         if 'name' not in task_desc.columns or 'gpt_description' not in task_desc.columns:
-            raise ValueError("✗ Category file must contain 'name' and 'gpt_description' columns")
+            raise ValueError("ERROR: Category file must contain 'name' and 'gpt_description' columns")
 
         # Load O*NET files
         onet_path = f'{path_to_master}tte_onet_oews/tasks/task_text.csv'
@@ -345,11 +358,13 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         
         print(f"Loaded {len(onet)} task statements")
 
-        # Load and embed task categories
+        # Load and embed task categories; truncate to match dimensionality of pre-embedded tasks (supports MRL)
         task_dict = dict(zip(task_desc.index, task_desc['name']))
         print(f"Encoded {len(task_desc)} task categories")
-        task_embed = model.encode(task_desc['gpt_description'].tolist(), 
+        embed_dim = onet_embed.shape[1]
+        task_embed = model.encode(task_desc['gpt_description'].tolist(),
                                   convert_to_tensor=True)
+        task_embed = task_embed[:, :embed_dim]
 
         # Classify tasks
         similarity_scores = sim_scores(onet_embed, task_embed).cpu().numpy()
@@ -368,7 +383,7 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         print(f"Results saved to {output_path}")
 
         print(f"\n{'='*60}")
-        print(f"✓ Classification complete")
+        print(f"OK Classification complete")
         print(f"{'='*60}\n")
         
     except Exception as e:
