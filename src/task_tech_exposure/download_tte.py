@@ -182,8 +182,8 @@ class TTEDownloader:
                     print(f"  Installed version: {installed_str}")
                     print("\nTo resolve, either:")
                     print("  1. Upgrade the package:")
-                    print("       pip install --upgrade "
-                          "git+https://github.com/armouton/task-tech-exposure.git")
+                    print("       pip install --upgrade"
+                          " git+https://github.com/armouton/task-tech-exposure.git")
                     print("  2. Download a dataset version compatible with your package:")
                     print("       https://doi.org/10.5281/zenodo.17643647")
                     print(f"{'!'*60}\n")

@@ -19,6 +19,10 @@ dependencies = [
 ]
 license = "MIT"
 license-files = ["LICENSE.txt"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 
 [project.optional-dependencies]
 train = [
@@ -26,10 +30,6 @@ train = [
     "scikit-learn>=1.0",
     "statsmodels>=0.14",
     "datasets>=2.0",
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
 ]
 
 [project.urls]

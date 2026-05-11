@@ -34,9 +34,8 @@ The package provides access to a living dataset that is updated quarterly with n
 Package installation requires Git, and can be executed in the terminal:
 
 ```bash
-python3 -m pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
+pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
 ```
-Note that Windows users may need to substitute ``python`` for ``python3``.
 
 *Sentencetransformers* and its dependencies will be installed if not already present. Note that some dependencies, such as *torch*, have different installation options, and if a particular option is desired then these should be installed separately.
 
