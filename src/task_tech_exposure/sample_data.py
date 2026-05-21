@@ -8,8 +8,6 @@ import openai
 
 # ================== DEFAULTS =================
 
-EMBED_VERSION = 'qwen3_0.6b'
-
 TECH_PROMPT = (
     "<instructions> Determine if the patent text falls into one or more of the following {n} "
     "technology categories, and return a comma-separated vector of \"1\"'s, \"0\"'s, and "
@@ -208,12 +206,12 @@ def create_sample(path_to_data, path_to_results, cat_type, api_key,
     # Apply template and save sample texts (without prompt column)
     sample['prompt'] = sample['text'].apply(
         lambda t: prompt_template.format(text=t, n=n, categories=categories_text))
-    sample_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_sample.csv'
+    sample_path = f'{path_to_samples}{cat_type}_sample.csv'
     sample.drop(columns=['prompt']).to_csv(sample_path, index=False)
     print(f"Saved {len(sample)} sample texts to {sample_path}")
 
     # Save a categories snapshot so train_model() and validate_model() use the same categories
-    cat_snapshot_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_categories.csv'
+    cat_snapshot_path = f'{path_to_samples}{cat_type}_categories.csv'
     categories.to_csv(cat_snapshot_path, index=False)
     print(f"Saved category snapshot to {cat_snapshot_path}")
 
@@ -254,7 +252,7 @@ def create_sample(path_to_data, path_to_results, cat_type, api_key,
 
     # Save batch ID so label_sample() can retrieve without requiring the user to
     # track it manually
-    batch_id_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}_batch_id.txt')
+    batch_id_path = (f'{path_to_samples}{cat_type}_batch_id.txt')
     with open(batch_id_path, 'w') as f:
         f.write(batch.id)
 

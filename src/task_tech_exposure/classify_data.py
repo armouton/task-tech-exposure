@@ -150,16 +150,26 @@ def classify_patents(path_to_data, path_to_results,
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/tech_categories.csv'
         if not os.path.exists(path_to_descriptions):
             raise FileNotFoundError("ERROR: Technology category descriptions file not found, please specify path")
-    if cutoff is None or model is None:
-        """Load local manifest if it exists."""
-        try:
-            with open(path_to_master + 'dataset_manifest.json', 'r') as f:
-                manifest = json.load(f)
-        except FileNotFoundError as e:
-            raise FileNotFoundError("ERROR: Dataset manifest not found, please specify SBERT model and cutoff") from e
-        
-        cutoff = manifest.get("tech_cutoff") if cutoff is None else cutoff
-        model = path_to_master + 'tte_models/' + manifest.get("tech_model") if model is None else model
+    # Load manifest to fill defaults and detect model mismatches
+    manifest = {}
+    try:
+        with open(path_to_master + 'dataset_manifest.json', 'r') as f:
+            manifest = json.load(f)
+    except FileNotFoundError:
+        if cutoff is None or model is None:
+            raise FileNotFoundError(
+                "ERROR: Dataset manifest not found, please specify SBERT model and cutoff")
+    cutoff = manifest.get("tech_cutoff") if cutoff is None else cutoff
+    if model is None:
+        model = path_to_master + 'tte_models/' + manifest.get("tech_model")
+    elif manifest.get("tech_model"):
+        if os.path.basename(model) != manifest.get("tech_model"):
+            print(f"Warning: Specified model differs from the manifest default "
+                  f"('{manifest.get('tech_model')}'). Pre-stored patent embeddings"
+                  f" were generated with the manifest model; if embedding "
+                  f"dimensions differ, live encodings will be silently truncated "
+                  f"and similarity scores may be unreliable. Run embed_data() to "
+                  f"regenerate patent embeddings with the new model.")
 
     print(f"\n{'='*60}")
     print(f"TTE Patent Classification")
@@ -239,7 +249,8 @@ def classify_patents(path_to_data, path_to_results,
                 # If no groups, classify patents into all matching categories
                 if groups is None:
                     for i, tech_name in enumerate(tech_names):
-                        patents_year[tech_name] = (similarity_scores[:, i] >= cutoff[i]).astype(int)
+                        patents_year[tech_name] = (similarity_scores[:, i] >= 
+                                                   cutoff[i]).astype(int)
 
                 # Otherwise, classify patents into mutually exclusive groups
                 else:
@@ -318,15 +329,25 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/task_categories.csv'
         if not os.path.exists(path_to_descriptions):
             raise FileNotFoundError("ERROR: Task category descriptions file not found, please specify path")
+    # Load manifest to fill defaults and detect model mismatches
+    manifest = {}
+    try:
+        with open(path_to_master + 'dataset_manifest.json', 'r') as f:
+            manifest = json.load(f)
+    except FileNotFoundError:
+        if model is None:
+            raise FileNotFoundError(
+                "ERROR: Dataset manifest not found, please specify SBERT model")
     if model is None:
-        """Load local manifest if it exists."""
-        try:
-            with open(path_to_master + 'dataset_manifest.json', 'r') as f:
-                manifest = json.load(f)
-        except FileNotFoundError as e:
-            raise FileNotFoundError("ERROR: Dataset manifest not found, please specify SBERT model") from e
-        
-        model = path_to_master + 'tte_models/' + manifest.get("task_model") if model is None else model
+        model = path_to_master + 'tte_models/' + manifest.get("task_model")
+    elif manifest.get("task_model"):
+        if os.path.basename(model) != manifest.get("task_model"):
+            print(f"Warning: Specified model differs from the manifest default "
+                  f"('{manifest.get('task_model')}'). Pre-stored task embeddings"
+                  f" were generated with the manifest model; if embedding "
+                  f"dimensions differ, live encodings will be silently truncated "
+                  f"and similarity scores may be unreliable. Run embed_data() to "
+                  f"regenerate task embeddings with the new model.")
 
     print(f"\n{'='*60}")
     print(f"TTE Task Classification")

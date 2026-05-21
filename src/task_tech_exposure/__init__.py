@@ -1,4 +1,4 @@
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 from .download_tte import download_data
 from .classify_data import classify_patents, classify_tasks
@@ -26,6 +26,11 @@ def validate_model(*args, **kwargs):
     return _fn(*args, **kwargs)
 
 
+def embed_data(*args, **kwargs):
+    from .embed_data import embed_data as _fn
+    return _fn(*args, **kwargs)
+
+
 __all__ = [
     'download_data',
     'classify_patents', 'classify_tasks',
@@ -33,4 +38,5 @@ __all__ = [
     'generate_descriptions',
     'create_sample', 'label_sample',
     'train_model', 'validate_model',
+    'embed_data',
 ]

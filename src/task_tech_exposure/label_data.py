@@ -5,11 +5,6 @@ import pandas as pd
 import openai
 
 
-# ================== DEFAULTS =================
-
-EMBED_VERSION = 'qwen3_0.6b'
-
-
 # ================== LABEL SAMPLE =================
 
 # MAIN FUNCTION
@@ -38,8 +33,7 @@ def label_sample(path_to_results, cat_type, api_key,
 
     # Load batch ID from file if not provided
     if batch_id is None:
-        batch_id_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}'
-                         f'_batch_id.txt')
+        batch_id_path = (f'{path_to_samples}{cat_type}_batch_id.txt')
         if not os.path.exists(batch_id_path):
             raise FileNotFoundError(
                 f"ERROR: Batch ID file not found at {batch_id_path}. "
@@ -115,7 +109,7 @@ def label_sample(path_to_results, cat_type, api_key,
     df = pd.concat([df[['index']], df_split], axis=1)
 
     # Load original sample texts and merge on row index
-    sample_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_sample.csv'
+    sample_path = f'{path_to_samples}{cat_type}_sample.csv'
     if not os.path.exists(sample_path):
         raise FileNotFoundError(
             f"ERROR: Original sample file not found at {sample_path}. "
@@ -130,13 +124,12 @@ def label_sample(path_to_results, cat_type, api_key,
         print(f"Warning: {n_missing}/{len(labeled)} rows have missing GPT labels")
 
     # Save labeled file
-    labeled_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_labeled.csv'
+    labeled_path = f'{path_to_samples}{cat_type}_labeled.csv'
     labeled.to_csv(labeled_path, index=False)
     print(f"Labeled {len(labeled)} rows saved to {labeled_path}")
 
     # Remove batch ID file now that results are saved
-    batch_id_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}'
-                     f'_batch_id.txt')
+    batch_id_path = (f'{path_to_samples}{cat_type}_batch_id.txt')
     if os.path.exists(batch_id_path):
         os.remove(batch_id_path)
 

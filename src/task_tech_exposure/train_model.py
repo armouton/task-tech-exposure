@@ -19,7 +19,6 @@ from datasets import Dataset
 
 # ================== DEFAULTS =================
 
-EMBED_VERSION = 'qwen3_0.6b'
 BASE_MODEL = 'Qwen/Qwen3-Embedding-0.6B'
 
 # INSTRUCT PROMPTS APPLIED TO QUERY SIDE
@@ -211,11 +210,12 @@ def format_task(labeled, categories):
 
 # MAIN FUNCTION
 def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
-                run_validation=True, steps_total=None, steps_per_eval=None, 
+                run_validation=True, steps_total=None, steps_per_eval=None,
                 batch_size=None, learn_rate=None, gradient_accumulation_steps=None,
-                matryoshka_dims=[1024, 512, 384, 256], max_seq_length=512):
+                matryoshka_dims=[1024, 512, 384, 256], max_seq_length=512,
+                base_model=None, use_bf16=True, use_instruct=True):
     """
-    Fine-tune Qwen3-Embedding-0.6B for technology or task classification.
+    Fine-tune an embedding model for technology or task classification.
 
     Loads the labeled sample produced by label_sample(), formats it for
     training, splits into train/validation sets, and fine-tunes the model
@@ -237,12 +237,19 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
                                      batch of 32 at defaults. Defaults to 8 (tech)
                                      or 4 (task).
         matryoshka_dims: MRL dimensions to train and evaluate. Default [1024,512,384,256].
-                         Pass None to disable MRL.
+                         Pass None to disable MRL. Dims exceeding the model's native
+                         embedding dimension are silently removed with a warning.
         max_seq_length: Tokenizer sequence length cap. Default 512.
+        base_model: HuggingFace model ID or local path for the base model.
+                    Defaults to 'Qwen/Qwen3-Embedding-0.6B'.
+        use_bf16: Whether to enable bf16 mixed precision.
+        use_instruct: Whether to apply asymmetric instruct prompts during training and
+                      evaluation.
     """
     path_to_master = path_to_data + 'tte/'
     path_to_samples = path_to_results + 'tte_samples/'
     output_dir = f'{path_to_master}tte_models/{cat_type}_custom'
+    device = get_device()
 
     print(f"\n{'='*60}")
     print(f"TTE Model Training — {cat_type}")
@@ -250,6 +257,7 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
 
     # Apply cat_type-specific defaults for any unspecified hyperparameters
     defaults = TECH_DEFAULTS if cat_type[:4] == 'tech' else TASK_DEFAULTS
+    instruct = TECH_INSTRUCT if cat_type[:4] == 'tech' else TASK_INSTRUCT
     steps_total = steps_total or defaults['steps_total']
     steps_per_eval = steps_per_eval or defaults['steps_per_eval']
     batch_size = batch_size or defaults['batch_size']
@@ -258,10 +266,11 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
                                    or defaults['gradient_accumulation_steps'])
     weight_decay = defaults['weight_decay']
 
-    instruct = TECH_INSTRUCT if cat_type[:4] == 'tech' else TASK_INSTRUCT
+    # Resolve model identity and training options
+    base_model = base_model if base_model is not None else BASE_MODEL
 
     # Load labeled sample
-    labeled_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_labeled.csv'
+    labeled_path = f'{path_to_samples}{cat_type}_labeled.csv'
     if not os.path.exists(labeled_path):
         raise FileNotFoundError(
             f"ERROR: Labeled sample not found at {labeled_path}. "
@@ -270,7 +279,7 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
     print(f"Loaded {len(labeled)} labeled rows from {labeled_path}")
 
     # Load category descriptions — prefer the snapshot saved by create_sample()
-    cat_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_categories.csv'
+    cat_path = f'{path_to_samples}{cat_type}_categories.csv'
     if not os.path.exists(cat_path):
         fallback = (f'{path_to_master}tte_models/category_descriptions/'
                     f'{cat_type[:4]}_categories.csv')
@@ -302,13 +311,11 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
     # Save splits so validate_model() can find the val set
     os.makedirs(path_to_samples, exist_ok=True)
     train_df.to_csv(
-        f'{path_to_samples}{EMBED_VERSION}_{cat_type}_train.csv', index=False)
+        f'{path_to_samples}{cat_type}_train.csv', index=False)
     val_df.to_csv(
-        f'{path_to_samples}{EMBED_VERSION}_{cat_type}_val.csv', index=False)
+        f'{path_to_samples}{cat_type}_val.csv', index=False)
 
-    device = get_device()
-
-    print(f"\nBase model: {BASE_MODEL}")
+    print(f"\nBase model: {base_model}")
     print(f"Output:     {output_dir}")
     print(f"Device:     {device}")
     print(f"Steps:      {steps_total} total, eval every {steps_per_eval}")
@@ -319,12 +326,25 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
 
     # Load model
     os.makedirs(output_dir, exist_ok=True)
-    model = SentenceTransformer(
-        BASE_MODEL,
-        device=device,
-        tokenizer_kwargs={"fix_mistral_regex": True}
-    )
+    model_kwargs = {}
+    model_name_lower = base_model.lower()
+    if 'qwen3' in model_name_lower:
+        model_kwargs['tokenizer_kwargs'] = {"fix_mistral_regex": True}
+    model = SentenceTransformer(base_model, device=device, **model_kwargs)
     model.max_seq_length = max_seq_length
+
+    # Validate MRL dims against the model's native embedding dimension
+    if matryoshka_dims is not None:
+        native_dim = model.get_sentence_embedding_dimension()
+        oversized = [d for d in matryoshka_dims if d > native_dim]
+        if oversized:
+            print(f"Warning: matryoshka_dims {oversized} exceed the model's "
+                  f"native embedding dimension ({native_dim}) and will be removed.")
+            matryoshka_dims = [d for d in matryoshka_dims if d <= native_dim]
+        if not matryoshka_dims:
+            print(f"Warning: All matryoshka_dims exceeded the model's embedding "
+                  f"dimension; MRL training disabled.")
+            matryoshka_dims = None
 
     # Configure loss and evaluator
     if cat_type[:4] == 'tech':
@@ -370,32 +390,34 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
         train_loss = base_loss
 
     # Fine-tune
+    train_args = dict(
+        output_dir=output_dir,
+        load_best_model_at_end=True,
+        dataloader_drop_last=True,
+        max_steps=steps_total,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        bf16=use_bf16,
+        lr_scheduler_type='cosine',
+        warmup_steps=steps_per_eval,
+        learning_rate=learn_rate,
+        weight_decay=weight_decay,
+        eval_strategy='steps',
+        eval_steps=steps_per_eval,
+        eval_on_start=True,
+        save_strategy='steps',
+        save_steps=steps_per_eval,
+        save_total_limit=20,
+        logging_strategy='steps',
+        logging_steps=steps_per_eval,
+        logging_first_step=True,
+    )
+    if use_instruct:
+        train_args['prompts'] = {prompt_col: instruct}
     trainer = SentenceTransformerTrainer(
         model=model,
-        args=SentenceTransformerTrainingArguments(
-            output_dir=output_dir,
-            load_best_model_at_end=True,
-            dataloader_drop_last=True,
-            max_steps=steps_total,
-            per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=batch_size,
-            gradient_accumulation_steps=gradient_accumulation_steps,
-            bf16=True,
-            lr_scheduler_type='cosine',
-            warmup_steps=steps_per_eval,
-            learning_rate=learn_rate,
-            weight_decay=weight_decay,
-            eval_strategy='steps',
-            eval_steps=steps_per_eval,
-            eval_on_start=True,
-            save_strategy='steps',
-            save_steps=steps_per_eval,
-            save_total_limit=20,
-            logging_strategy='steps',
-            logging_steps=steps_per_eval,
-            logging_first_step=True,
-            prompts={prompt_col: instruct},
-        ),
+        args=SentenceTransformerTrainingArguments(**train_args),
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         loss=train_loss,
@@ -408,11 +430,10 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
     # Post-training evaluation: base vs finetuned, across MRL dimensions
     all_evals = []
 
-    base_model = SentenceTransformer(
-        BASE_MODEL, device=device, tokenizer_kwargs={"fix_mistral_regex": True})
-    base_model.max_seq_length = max_seq_length
+    base_st_model = SentenceTransformer(base_model, device=device, **model_kwargs)
+    base_st_model.max_seq_length = max_seq_length
 
-    for label, m in [('base', base_model), ('finetuned', model)]:
+    for label, m in [('base', base_st_model), ('finetuned', model)]:
         evals = evaluate_performance(
             cat_type, val_df, categories, m,
             use_instruct=False, instruct=None)
@@ -432,7 +453,7 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
                 all_evals.append(evals_dim)
 
         # Asymmetric (instruct) evaluation for finetuned model
-        if label == 'finetuned':
+        if label == 'finetuned' and use_instruct:
             evals_instruct = evaluate_performance(
                 cat_type, val_df, categories, m,
                 use_instruct=True, instruct=instruct)
@@ -450,8 +471,9 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
     print(f"\n{'='*60}")
     print(f"OK Training complete")
     print(f"  Model saved to: {output_dir}")
-    print(f"  Pass this path as the 'model' argument to classify_patents()")
-    print(f"  or classify_tasks() to use the fine-tuned model.")
+    print(f"  Run embed_data() next to regenerate pre-stored embeddings")
+    print(f"  with the fine-tuned model, then pass the model path to")
+    print(f"  classify_patents() or classify_tasks() via the 'model' argument.")
     print(f"{'='*60}\n")
 
     # Optionally find classification thresholds

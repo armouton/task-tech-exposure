@@ -20,7 +20,7 @@ class TTEDownloader:
         self.local_manifest_path = self.path_to_data / "tte/zenodo_manifest.json"
         
         self.headers = {
-            'User-Agent': 'task-tech-exposure/0.2.0 (https://github.com/armouton/task-tech-exposure)',
+            'User-Agent': 'task-tech-exposure/ (https://github.com/armouton/task-tech-exposure)',
             'Accept': 'application/json',
         }
         

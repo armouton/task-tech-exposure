@@ -11,11 +11,6 @@ from sentence_transformers import SentenceTransformer
 from .train_model import get_device, encode, TECH_INSTRUCT, TASK_INSTRUCT
 
 
-# ================== DEFAULTS =================
-
-EMBED_VERSION = 'qwen3_0.6b'
-
-
 # ================== HELPER FUNCTIONS =================
 
 # FIND EMBEDDING MODEL TO TRAIN
@@ -186,7 +181,7 @@ def validate_model(path_to_data, path_to_results, cat_type,
     instruct = TECH_INSTRUCT if cat_type[:4] == 'tech' else TASK_INSTRUCT
 
     # Load category descriptions — prefer the snapshot saved by create_sample()
-    cat_path = f'{path_to_samples}{EMBED_VERSION}_{cat_type}_categories.csv'
+    cat_path = f'{path_to_samples}{cat_type}_categories.csv'
     if not os.path.exists(cat_path):
         fallback = (f'{path_to_master}tte_models/category_descriptions/'
                     f'{cat_type[:4]}_categories.csv')
@@ -199,8 +194,8 @@ def validate_model(path_to_data, path_to_results, cat_type,
     print(f"Categories: {len(categories)} loaded from {cat_path}")
 
     # Load validation data — prefer the training val split, fall back to full labeled
-    val_split_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}_val.csv')
-    labeled_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}_labeled.csv')
+    val_split_path = (f'{path_to_samples}{cat_type}_val.csv')
+    labeled_path = (f'{path_to_samples}{cat_type}_labeled.csv')
     pre_formatted = False
 
     if os.path.exists(val_split_path):
@@ -277,8 +272,7 @@ def validate_model(path_to_data, path_to_results, cat_type,
         rows.append(avg_row)
 
         thresholds = pd.DataFrame(rows, columns=col_names)
-        thresh_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}'
-                       f'_thresholds.csv')
+        thresh_path = (f'{path_to_samples}{cat_type}_thresholds.csv')
         thresholds.to_csv(thresh_path, index=False)
         print(f"\nThresholds saved to {thresh_path}")
         print(thresholds.to_string(index=False))
@@ -306,8 +300,7 @@ def validate_model(path_to_data, path_to_results, cat_type,
                     })
         if perf_rows:
             perf_df = pd.DataFrame(perf_rows)
-            perf_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}'
-                         f'_performance.csv')
+            perf_path = (f'{path_to_samples}{cat_type}_performance.csv')
             perf_df.to_csv(perf_path, index=False)
             print(f"\nPerformance summary saved to {perf_path}")
             print(perf_df.to_string(index=False))
@@ -339,8 +332,7 @@ def validate_model(path_to_data, path_to_results, cat_type,
             output_dict=True, zero_division=0)
         report_df = pd.DataFrame(report_dict).transpose()
 
-        perf_path = (f'{path_to_samples}{EMBED_VERSION}_{cat_type}'
-                     f'_performance.csv')
+        perf_path = (f'{path_to_samples}{cat_type}_performance.csv')
         report_df.to_csv(perf_path)
         print(f"\nClassification report saved to {perf_path}")
         print(classification_report(
