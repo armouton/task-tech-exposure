@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "task-tech-exposure"
-version = "0.2.2"
+version = "0.2.3"
 description = "This package implements the methodology of 'Measuring Task-Level Technological Exposure: A Language Model Approach' (2026). It handles file download and management, data classification, and exposure measure generation."
 readme = "README.md"
 authors = [

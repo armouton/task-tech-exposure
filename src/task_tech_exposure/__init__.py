@@ -1,4 +1,4 @@
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 from .download_tte import download_data
 from .classify_data import classify_patents, classify_tasks
