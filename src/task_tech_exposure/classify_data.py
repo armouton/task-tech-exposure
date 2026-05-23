@@ -197,11 +197,41 @@ def classify_patents(path_to_data, path_to_results,
         tech_embed_full = model.encode(tech_class['gpt_description'].tolist(),
                                        convert_to_tensor=True)
 
-        # Broadcast scalar cutoff to per-category list
-        if isinstance(cutoff, (int, float)):
+        # Resolve cutoff to a per-category list
+        if cutoff is None or (isinstance(cutoff, list) and len(cutoff) != len(tech_names)):
+            # No usable cutoff yet — try validation thresholds file first
+            thresholds_path = f'{path_to_results}tte_samples/tech_thresholds.csv'
+            resolved = False
+            if os.path.exists(thresholds_path):
+                try:
+                    thresh_df = pd.read_csv(thresholds_path)
+                    thresh_df = thresh_df[thresh_df['name'] != 'avg. threshold']
+                    if ('marg_prec_0.5' in thresh_df.columns and
+                            all(n in thresh_df['name'].values for n in tech_names)):
+                        cutoff = [
+                            float(thresh_df.loc[thresh_df['name'] == n,
+                                                'marg_prec_0.5'].values[0])
+                            for n in tech_names
+                        ]
+                        print(f"Note: Cutoff resolved from {thresholds_path} (marg_prec_0.5).")
+                        resolved = True
+                except Exception:
+                    pass
+            if not resolved:
+                if isinstance(cutoff, list):
+                    fallback = max(cutoff)
+                    print(f"Warning: Cutoff list length ({len(cutoff)}) does not match category "
+                          f"count ({len(tech_names)}). Using max manifest cutoff ({fallback:.4f}) "
+                          f"as a conservative default. Run validate_model() to obtain "
+                          f"category-specific thresholds.")
+                    cutoff = [fallback] * len(tech_names)
+                else:
+                    raise ValueError(
+                        "ERROR: No cutoff specified and no default found in dataset manifest. "
+                        "Specify a cutoff value, or run validate_model() to generate "
+                        "category-specific thresholds.")
+        elif isinstance(cutoff, (int, float)):
             cutoff = [cutoff] * len(tech_names)
-        elif len(cutoff) != len(tech_names):
-            raise ValueError(f"ERROR: cutoff list length ({len(cutoff)}) must match number of technology categories ({len(tech_names)})")
 
         # Process groups if provided
         if groups is not None:

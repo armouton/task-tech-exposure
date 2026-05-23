@@ -59,7 +59,7 @@ tte.generate_descriptions(path_to_data="/path/to/data/",
                           path_to_categories="/path/to/my_categories.csv")
 ```
 
-**Step 2 — Measuring Exposure.** Classify patents and task statements, then compute exposure indices. By default this uses the pre-trained models and category definitions shipped with the dataset. Custom models and category files can be specified via optional arguments (see [Measuring Exposure](#measuring-exposure)).
+**Step 2 — Measuring Exposure.** Classify patents and task statements, then compute exposure indices. By default this uses the pre-trained models and category definitions shipped with the dataset. Custom models and category files can be specified via optional arguments (see [Measuring Exposure](#measuring-exposure)). When using custom technology categories, similarity thresholds for `classify_patents()` are set via the `cutoff` argument; if omitted, the package automatically uses per-category thresholds from the validation step in Step 3 if available, or the maximum of the manifest defaults otherwise (see [`classify_patents`](#classify_patents) for details).
 
 ```python
 # Classify patents by technology category
@@ -75,7 +75,9 @@ tte.measure_exposure(path_to_data="/path/to/data/",
                      path_to_results="/path/to/results/")
 ```
 
-**Step 3 — Model Training and Validation (optional).** If using custom categories, submit a labeled sample to the OpenAI Batch API, retrieve results, fine-tune the embedding model, and regenerate the pre-stored embeddings. After re-embedding, the fine-tuned model path can be passed to `classify_patents()` or `classify_tasks()` via the `model` argument in Step 2. An OpenAI API key is required.
+**Step 3 — Model Training and Validation (optional).** Two sub-workflows are available depending on whether you want to fine-tune a new embedding model or only find data-driven similarity thresholds for use with the existing model. Both require an OpenAI API key for GPT labeling.
+
+*Option A — Find thresholds only.* Use this when you want to keep the pre-trained model but calibrate per-category similarity thresholds against labeled data (e.g. to validate the manifest defaults or adjust them for your application). The thresholds are written to `tte_samples/tech_thresholds.csv` and picked up automatically by `classify_patents()`.
 
 ```python
 # Submit texts for GPT labeling (batch completes within 24 hours)
@@ -90,7 +92,28 @@ tte.label_sample(path_to_results="/path/to/results/",
                  cat_type="tech",
                  api_key="sk-...")
 
-# Fine-tune and validate
+# Compute thresholds using the existing pre-trained model
+tte.validate_model(path_to_data="/path/to/data/",
+                   path_to_results="/path/to/results/",
+                   cat_type="tech")
+```
+
+*Option B — Fine-tune a new model.* Use this when using custom categories. Fine-tunes the embedding model on the labeled sample, validates thresholds, and regenerates the pre-stored embeddings. After re-embedding, pass the fine-tuned model path to `classify_patents()` via the `model` argument in Step 2.
+
+```python
+# Submit texts for GPT labeling (batch completes within 24 hours)
+tte.create_sample(path_to_data="/path/to/data/",
+                  path_to_results="/path/to/results/",
+                  cat_type="tech",
+                  api_key="sk-...",
+                  path_to_categories="/path/to/my_categories.csv")
+
+# Retrieve labeled results
+tte.label_sample(path_to_results="/path/to/results/",
+                 cat_type="tech",
+                 api_key="sk-...")
+
+# Fine-tune model and validate thresholds (validate_model() runs automatically)
 tte.train_model(path_to_data="/path/to/data/",
                 path_to_results="/path/to/results/",
                 cat_type="tech")
@@ -98,11 +121,6 @@ tte.train_model(path_to_data="/path/to/data/",
 # Regenerate pre-stored embeddings with the fine-tuned model
 tte.embed_data(path_to_data="/path/to/data/",
                embed_type="patents")
-
-# Validate only (find thresholds without retraining)
-tte.validate_model(path_to_data="/path/to/data/",
-                   path_to_results="/path/to/results/",
-                   cat_type="tech")
 ```
 
 ## Data Formatting
@@ -175,7 +193,7 @@ Classifies patents into technology categories using fine-tuned sentence embeddin
 - `path_to_output` (str, optional): Specific path and filename for output CSV. Defaults to 'tech_classification.csv' in results directory.
 - `path_to_descriptions` (str, optional): Path to CSV file containing technology category descriptions. Uses default files if not specified (see [Quick Start](#quick-start) above).
 - `model` (str, optional): Path to sentence transformer model for technology classification. Uses default fine-tuned model from manifest if None.
-- `cutoff` (float or list of float, optional): Similarity threshold(s) for classifying patents into technology categories. A single float is applied uniformly to all categories; a list provides a per-category threshold and must have one entry per category in the descriptions file. Default values are taken from `dataset_manifest.json` and are based on a 50% marginal accuracy threshold.
+- `cutoff` (float or list of float, optional): Similarity threshold(s) for classifying patents into technology categories. A single float is applied uniformly to all categories; a list provides a per-category threshold and must have one entry per category in the descriptions file. When not specified, cutoffs are resolved in order: (1) per-category thresholds from `validate_model()` output (`tte_samples/tech_thresholds.csv`, `marg_prec_0.5` column) if present and category names match; (2) default values from `dataset_manifest.json` (based on 50% marginal precision); (3) the maximum of the manifest cutoffs applied uniformly, with a warning — this last fallback occurs when using custom categories whose count differs from the manifest defaults and no validation thresholds file is present.
 - `groups` (list of lists, optional): Groups of technology categories for which classifications should be mutually exclusive (*e.g.* [[0,1], [3]] indicates that a patent should be matched to *at most* one of the first two categories in the descriptions file).
 - `priority` (str, optional): Method for resolving grouped categories. `'order'` assigns each patent to the first matching category in list order; `'score'` assigns it to the highest-similarity category. Default is `'order'`.
 
@@ -291,9 +309,9 @@ tte.measure_exposure(path_to_data="/Users/username/tte_data/",
 
 ## Model Training and Validation
 
-The default technology and task categories shipped with the dataset can be replaced with user-defined categories. The five functions below implement the labeling, fine-tuning, and re-embedding pipeline: GPT labeling via the OpenAI Batch API, model training, threshold validation, and re-generating the classification embeddings for use with a custom model. An OpenAI API key is required for labeling. Category descriptions must be prepared first using `generate_descriptions()` (see [Data Formatting](#data-formatting)).
+The five functions below support two workflows: finding data-driven similarity thresholds for the existing pre-trained model, or fine-tuning a new embedding model for custom categories. Both start with GPT labeling via the OpenAI Batch API. An OpenAI API key is required for labeling. Category descriptions must be prepared first using `generate_descriptions()` (see [Data Formatting](#data-formatting)).
 
-The workflow runs in sequence:
+**Threshold-only workflow** (keep the pre-trained model, find data-driven cutoffs):
 
 ```python
 import task_tech_exposure as tte
@@ -310,12 +328,35 @@ tte.label_sample(path_to_results="/path/to/results/",
                  cat_type="tech",
                  api_key="sk-...")
 
-# 3. Fine-tune the embedding model and validate thresholds
+# 3. Compute per-category thresholds using the existing model
+tte.validate_model(path_to_data="/path/to/data/",
+                   path_to_results="/path/to/results/",
+                   cat_type="tech")
+```
+
+Thresholds are saved to `path_to_results/tte_samples/tech_thresholds.csv` and picked up automatically by `classify_patents()` — no `cutoff` argument needed.
+
+**Full fine-tuning workflow** (custom categories, new embedding model):
+
+```python
+# 1. Submit texts for GPT labeling (returns within 24 hours)
+tte.create_sample(path_to_data="/path/to/data/",
+                  path_to_results="/path/to/results/",
+                  cat_type="tech",
+                  api_key="sk-...",
+                  path_to_categories="/path/to/my_tech_categories.csv")
+
+# 2. Retrieve labeled results once the batch is complete
+tte.label_sample(path_to_results="/path/to/results/",
+                 cat_type="tech",
+                 api_key="sk-...")
+
+# 3. Fine-tune the embedding model (validate_model() runs automatically)
 tte.train_model(path_to_data="/path/to/data/",
                 path_to_results="/path/to/results/",
                 cat_type="tech")
 
-# 4. Re-embed patents and tasks using the fine-tuned model
+# 4. Re-embed patents using the fine-tuned model
 tte.embed_data(path_to_data="/path/to/data/",
                embed_type="patents")
 ```
@@ -422,7 +463,7 @@ tte.train_model(path_to_data="/path/to/data/",
 
 Evaluates model classification performance and computes per-category similarity thresholds.
 
-**Purpose:** Loads the fine-tuned custom model (or the manifest default if no custom model exists), encodes validation texts and category descriptions, and produces per-category thresholds at multiple precision targets. For technology categories these thresholds can then be passed directly to `classify_patents()` via the `cutoff` argument. For task categories, a classification accuracy report is produced instead.
+**Purpose:** Loads the fine-tuned custom model (or the manifest default if no custom model exists), encodes validation texts and category descriptions, and produces per-category thresholds at multiple precision targets. For technology categories, the output thresholds file (`tte_samples/tech_thresholds.csv`) is automatically detected by `classify_patents()` when no `cutoff` is specified — no manual passing required. Thresholds can also be passed explicitly via the `cutoff` argument if a non-default column or value is preferred. For task categories, a classification accuracy report is produced instead (task classification uses argmax and has no threshold).
 
 **Key Arguments:**
 - `path_to_data` (str, required): Path to directory containing the downloaded dataset.
