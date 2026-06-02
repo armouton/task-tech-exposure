@@ -91,14 +91,18 @@ def measure_exposure(path_to_data, path_to_results,
     """
     # Load directories from manifest if not specified
     path_to_master = path_to_data + 'tte/'
+    if not os.path.isdir(path_to_master) and os.path.isfile(path_to_data + 'dataset_manifest.json'):
+        print(f"Note: path_to_data={path_to_data!r} points to the tte/ folder directly; "
+              f"pass the parent directory instead. Adjusting automatically.")
+        path_to_master = path_to_data
     if path_to_tech_classifications is None:
         path_to_tech_classifications = path_to_results + 'tech_classification.csv'
         if not os.path.exists(path_to_tech_classifications):
-            raise FileNotFoundError("ERROR: Technology classification file not found, please specify path")
+            raise FileNotFoundError(f"ERROR: Technology classification file not found at {path_to_tech_classifications}")
     if path_to_task_classifications is None:
         path_to_task_classifications = path_to_results + 'task_classification.csv'
         if not os.path.exists(path_to_task_classifications):
-            raise FileNotFoundError("ERROR: Task classification file not found, please specify path")
+            raise FileNotFoundError(f"ERROR: Task classification file not found at {path_to_task_classifications}")
     print(f"\n{'='*60}")
     print(f"TTE Exposure Measurement")
     print(f"{'='*60}")

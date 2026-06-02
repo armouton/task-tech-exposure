@@ -247,6 +247,10 @@ def train_model(path_to_data, path_to_results, cat_type, val_frac=0.1,
                       evaluation.
     """
     path_to_master = path_to_data + 'tte/'
+    if not os.path.isdir(path_to_master) and os.path.isfile(path_to_data + 'dataset_manifest.json'):
+        print(f"Note: path_to_data={path_to_data!r} points to the tte/ folder directly; "
+              f"pass the parent directory instead. Adjusting automatically.")
+        path_to_master = path_to_data
     path_to_samples = path_to_results + 'tte_samples/'
     output_dir = f'{path_to_master}tte_models/{cat_type}_custom'
     device = get_device()

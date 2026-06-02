@@ -35,7 +35,7 @@ The package provides access to a living dataset that is updated quarterly with n
 Package installation requires Git, and can be executed in the terminal:
 
 ```bash
-pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
+python -m pip install --upgrade git+https://github.com/armouton/task-tech-exposure.git
 ```
 
 *Sentencetransformers* and its dependencies will be installed if not already present. Note that some dependencies, such as *torch*, have different installation options, and if a particular option is desired then these should be installed separately.
@@ -134,7 +134,7 @@ Generates a GPT prompt for writing `gpt_description` entries for a custom catego
 **Purpose:** Formats the category names into a prompt ready to paste into a web app (e.g., ChatGPT). The returned descriptions are added to the `gpt_description` column of the categories CSV before running `create_sample()`. A template file at `tte/tte_models/gpt_prompts/templates/{tech|task}_description_template.txt` is used if present, otherwise a built-in default is applied.
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path where the output prompt file will be saved.
 - `cat_type` (str, required): Classification type. `'tech'` for technology categories, `'task'` for occupational task categories.
 - `path_to_categories` (str, optional): Path to a categories CSV with at least `name` and `category` columns. Defaults to the standard file in the downloaded dataset.
@@ -162,7 +162,7 @@ Downloads the matched patent-task dataset from the DOI repository to a local dir
 **Key Arguments:**
 - `from_year` (int, optional): Start date in YYYY format. If None, downloads full dataset from earliest available annual file (2001).
 - `to_year` (int, optional): End date in YYYY format. If None, downloads full dataset through most recent available annual file.
-- `path_to_data` (str, required): Path where dataset files will be saved.
+- `path_to_data` (str, required): Parent directory where the `tte/` dataset folder will be created (e.g., `"/Users/username/tte_data/"` creates `"/Users/username/tte_data/tte/"`).
 - `doi_url` (str, optional): Alternative URL if downloading from previous data version. Defaults to stable DOI for current version.
 - `force_update` (bool, optional): If True, re-downloads files even if they already exist locally. Default is False.
 
@@ -188,7 +188,7 @@ Classifies patents into technology categories using fine-tuned sentence embeddin
 **Purpose:** Assigns patent applications to user-defined or default technology categories (*e.g.* AI, robotics, software) based on semantic similarity between patent abstracts and category descriptions. Uses a trained Sentence-BERT model with customizable similarity thresholds.
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path where classification results will be saved.
 - `path_to_output` (str, optional): Specific path and filename for output CSV. Defaults to 'tech_classification.csv' in results directory.
 - `path_to_descriptions` (str, optional): Path to CSV file containing technology category descriptions. Uses default files if not specified (see [Quick Start](#quick-start) above).
@@ -217,7 +217,7 @@ Classifies occupational task statements into functional categories using fine-tu
 **Purpose:** Assigns ONET task statements to user-defined or default task categories (e.g., cognitive, manual, routine) based on semantic similarity between task descriptions and category definitions.
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path where classification results will be saved.
 - `path_to_output` (str, optional): Specific path and filename for output CSV. Defaults to 'task_classification.csv' in results directory.
 - `path_to_descriptions` (str, optional): Path to CSV file containing task category descriptions. Uses default files if not specified (see [Quick Start](#quick-start) above).
@@ -242,7 +242,7 @@ Calculates technological exposure measures at specified aggregation levels with 
 **Key Arguments:**
 
 *Input Files:*
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path containing classification files and where exposure results will be saved.
 - `path_to_tech_classifications` (str, optional): Path to technology classification CSV. Defaults to 'tech_classification.csv' in results directory.
 - `path_to_task_classifications` (str, optional): Path to task classification CSV. Defaults to 'task_classification.csv' in results directory.
@@ -374,7 +374,7 @@ Draws a sample of patent abstracts or task statements and submits them for GPT l
 **Purpose:** Samples texts from the downloaded dataset, formats them with the classification prompt, and submits an OpenAI batch job. The batch ID is saved locally so `label_sample()` can retrieve results automatically. A snapshot of the categories used is also saved, ensuring that `train_model()` and `validate_model()` use exactly the same category definitions.
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path where sample files will be saved.
 - `cat_type` (str, required): Classification type (`'tech'` or `'task'`).
 - `api_key` (str, required): OpenAI API key.
@@ -430,7 +430,7 @@ Fine-tunes a sentence embedding model for technology or task classification.
 **Purpose:** Loads the labeled sample from `label_sample()`, formats it for contrastive training, and fine-tunes the base model using Matryoshka Representation Learning (MRL) and asymmetric instruct prompts. Optionally calls `validate_model()` after training to compute per-category similarity thresholds. The fine-tuned model is saved to `tte/tte_models/{cat_type}_custom/` and can be passed directly to `classify_patents()` or `classify_tasks()` via the `model` argument.
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path where sample files are saved.
 - `cat_type` (str, required): Classification type (`'tech'` or `'task'`).
 - `val_frac` (float, optional): Fraction of formatted examples to hold out for validation. Default 0.1.
@@ -466,7 +466,7 @@ Evaluates model classification performance and computes per-category similarity 
 **Purpose:** Loads the fine-tuned custom model (or the manifest default if no custom model exists), encodes validation texts and category descriptions, and produces per-category thresholds at multiple precision targets. For technology categories, the output thresholds file (`tte_samples/tech_thresholds.csv`) is automatically detected by `classify_patents()` when no `cutoff` is specified — no manual passing required. Thresholds can also be passed explicitly via the `cutoff` argument if a non-default column or value is preferred. For task categories, a classification accuracy report is produced instead (task classification uses argmax and has no threshold).
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `path_to_results` (str, required): Path where sample files are saved.
 - `cat_type` (str, required): Classification type (`'tech'` or `'task'`).
 - `beta` (list, optional): Beta values for F-score threshold computation. Tech only. Default `[0.5, 1]`.
@@ -491,7 +491,7 @@ Re-generates the classification embedding files used by `classify_patents()` and
 **Purpose:** Encodes patent abstracts and O\*NET task statements using the technology and task classification models respectively, and saves the resulting `.npy` files to the dataset directory. This must be run after `train_model()` when using a custom model, because `classify_patents()` and `classify_tasks()` load pre-computed embeddings from disk. Patents are encoded with the tech model using the technology instruct prompt; tasks are encoded with the task model using the task instruct prompt.
 
 **Key Arguments:**
-- `path_to_data` (str, required): Path to directory containing the downloaded dataset.
+- `path_to_data` (str, required): Parent directory of the downloaded `tte/` dataset folder.
 - `embed_type` (str, optional): What to re-embed. `'patents'` processes all year files using the tech model; `'tasks'` processes the O\*NET task file using the task model; `'both'` does both. Default `'both'`.
 - `tech_model` (str, optional): Path to the technology classification model. Defaults to the `tech_model` entry in `dataset_manifest.json` (i.e. the fine-tuned custom model after `train_model()` is run). Ignored when `embed_type='tasks'`.
 - `task_model` (str, optional): Path to the task classification model. Defaults to the `task_model` entry in `dataset_manifest.json`. Ignored when `embed_type='patents'`.

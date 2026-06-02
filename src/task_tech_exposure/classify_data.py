@@ -144,12 +144,16 @@ def classify_patents(path_to_data, path_to_results,
     """
     # Load directories from manifest if not specified
     path_to_master = path_to_data + 'tte/'
+    if not os.path.isdir(path_to_master) and os.path.isfile(path_to_data + 'dataset_manifest.json'):
+        print(f"Note: path_to_data={path_to_data!r} points to the tte/ folder directly; "
+              f"pass the parent directory instead. Adjusting automatically.")
+        path_to_master = path_to_data
     if path_to_output is None:
         path_to_output = path_to_results + 'tech_classification.csv'
     if path_to_descriptions is None:
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/tech_categories.csv'
         if not os.path.exists(path_to_descriptions):
-            raise FileNotFoundError("ERROR: Technology category descriptions file not found, please specify path")
+            raise FileNotFoundError(f"ERROR: Technology category descriptions file not found at {path_to_descriptions}")
     # Load manifest to fill defaults and detect model mismatches
     manifest = {}
     try:
@@ -353,12 +357,16 @@ def classify_tasks(path_to_data, path_to_results, path_to_output=None,
     """
     # Load directories from manifest if not specified
     path_to_master = path_to_data + 'tte/'
+    if not os.path.isdir(path_to_master) and os.path.isfile(path_to_data + 'dataset_manifest.json'):
+        print(f"Note: path_to_data={path_to_data!r} points to the tte/ folder directly; "
+              f"pass the parent directory instead. Adjusting automatically.")
+        path_to_master = path_to_data
     if path_to_output is None:
         path_to_output = path_to_results + 'task_classification.csv'
     if path_to_descriptions is None:
         path_to_descriptions = path_to_master + 'tte_models/category_descriptions/task_categories.csv'
         if not os.path.exists(path_to_descriptions):
-            raise FileNotFoundError("ERROR: Task category descriptions file not found, please specify path")
+            raise FileNotFoundError(f"ERROR: Task category descriptions file not found at {path_to_descriptions}")
     # Load manifest to fill defaults and detect model mismatches
     manifest = {}
     try:

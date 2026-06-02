@@ -75,6 +75,10 @@ def generate_descriptions(path_to_data, path_to_results, cat_type,
                             the downloaded dataset.
     """
     path_to_master = path_to_data + 'tte/'
+    if not os.path.isdir(path_to_master) and os.path.isfile(path_to_data + 'dataset_manifest.json'):
+        print(f"Note: path_to_data={path_to_data!r} points to the tte/ folder directly; "
+              f"pass the parent directory instead. Adjusting automatically.")
+        path_to_master = path_to_data
 
     print(f"\n{'='*60}")
     print(f"TTE Description Prompt Generation — {cat_type}")

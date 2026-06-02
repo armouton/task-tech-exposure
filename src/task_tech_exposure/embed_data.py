@@ -89,6 +89,10 @@ def embed_data(path_to_data, embed_type='both',
             f"got '{embed_type}'")
 
     path_to_master = path_to_data + 'tte/'
+    if not os.path.isdir(path_to_master) and os.path.isfile(path_to_data + 'dataset_manifest.json'):
+        print(f"Note: path_to_data={path_to_data!r} points to the tte/ folder directly; "
+              f"pass the parent directory instead. Adjusting automatically.")
+        path_to_master = path_to_data
     device = get_device()
 
     print(f"\n{'='*60}")
